@@ -5,10 +5,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 // note this cant be greater than 4gb for now
 const MaxValueBytes = 50 * 1024 * 1024 // 50MB
+
+const MaxStorageBytes = 1024 * 1024 * 1024 // 1GB per tenant
 
 type statusWriter struct {
 	http.ResponseWriter
@@ -50,15 +53,28 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+func envOrUint64(key string, fallback uint64) uint64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseUint(v, 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
 func main() {
 	verbose := flag.Bool("verbose", os.Getenv("FREDB_VERBOSE") == "1", "log requests")
 	dataRoot := flag.String("data-root", envOr("FREDB_DATA_ROOT", "/tmp/fredb-data"), "root dir for per-tenant data")
 	sockRoot := flag.String("sock-root", envOr("FREDB_SOCK_ROOT", "/tmp/fredb-socks"), "root dir for per-tenant engine sockets")
 	apiAddr := flag.String("api-addr", envOr("FREDB_API_ADDR", ":8080"), "api port address")
 	adminAddr := flag.String("admin-addr", envOr("FREDB_ADMIN_ADDR", ":8081"), "admin port address")
+	maxStorageBytes := flag.Uint64("max-storage-bytes", envOrUint64("FREDB_MAX_STORAGE_BYTES", MaxStorageBytes), "per-tenant storage cap in bytes")
 	flag.Parse()
 
-	manager := NewDatabaseManager(*dataRoot, *sockRoot, MaxValueBytes)
+	manager := NewDatabaseManager(*dataRoot, *sockRoot, MaxValueBytes, *maxStorageBytes)
 	if err := manager.LoadAll(); err != nil {
 		log.Fatal(err)
 	}

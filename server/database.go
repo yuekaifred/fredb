@@ -15,6 +15,7 @@ func errUnavailable(err error) *StoreError {
 
 var (
 	errTooLarge         = &StoreError{Status: http.StatusRequestEntityTooLarge, Message: "value too large"}
+	errStorageFull      = &StoreError{Status: http.StatusInsufficientStorage, Message: "storage limit exceeded"}
 	errRateLimited      = &StoreError{Status: http.StatusTooManyRequests, Message: "rate limit exceeded"}
 	errEmptyKey         = &StoreError{Status: http.StatusBadRequest, Message: "missing key"}
 	errEmptyRangeBounds = &StoreError{Status: http.StatusBadRequest, Message: "start and end required"}
@@ -22,22 +23,24 @@ var (
 )
 
 type Database struct {
-	APIKey        string
-	maxValueBytes int
+	APIKey          string
+	maxValueBytes   int
+	maxStorageBytes uint64
 
 	engine *EngineProcess
 	store  *SocketStore
 }
 
-func NewDatabase(apiKey, sockPath, dataDirPath string, maxValueBytes int) (*Database, error) {
+func NewDatabase(apiKey, sockPath, dataDirPath string, maxValueBytes int, maxStorageBytes uint64) (*Database, error) {
 	engine := &EngineProcess{SockPath: sockPath, DataDirPath: dataDirPath}
 	if err := engine.Spawn(); err != nil {
 		return nil, err
 	}
 	return &Database{
-		APIKey:        apiKey,
-		maxValueBytes: maxValueBytes,
-		engine:        engine,
+		APIKey:          apiKey,
+		maxValueBytes:   maxValueBytes,
+		maxStorageBytes: maxStorageBytes,
+		engine:          engine,
 	}, nil
 }
 
@@ -82,6 +85,13 @@ func (db *Database) Put(key, value string) *StoreError {
 	}
 	if len(value) > db.maxValueBytes {
 		return errTooLarge
+	}
+	size, err := db.ensureStore().TotalSize(db.sockPath())
+	if err != nil {
+		return errUnavailable(err)
+	}
+	if size >= db.maxStorageBytes {
+		return errStorageFull
 	}
 	if err := db.ensureStore().Put(db.sockPath(), key, value); err != nil {
 		return errUnavailable(err)

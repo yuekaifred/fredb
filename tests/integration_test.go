@@ -28,6 +28,11 @@ import (
 // matching update.
 const maxValueBytes = 50 * 1024 * 1024 // 50MB
 
+// maxStorageBytes mirrors run-integration-tests.sh's FREDB_MAX_STORAGE_BYTES
+// (and flake.nix's tests package). Kept small on purpose so the storage-limit
+// tests dont need to write real gigabytes through the actual engine.
+const maxStorageBytes = 256 * 1024 // 256KB
+
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -96,6 +101,15 @@ func doReq(method, url string, body io.Reader) (*http.Response, error) {
 func mustReq(t *testing.T, method, url string, body io.Reader) *http.Response {
 	t.Helper()
 	resp, err := doReq(method, url, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func mustReqAs(t *testing.T, key, method, url string, body io.Reader) *http.Response {
+	t.Helper()
+	resp, err := doReqAs(key, method, url, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,6 +339,73 @@ func TestValueTooLarge(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d, want 413", resp.StatusCode)
+	}
+}
+
+// TestStorageLimitEnforced provisions its own tenant (isolated from every
+// other test's data, since maxStorageBytes is a small shared cap) and writes
+// chunks until the server starts rejecting puts with 507.
+func TestStorageLimitEnforced(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+
+	chunk := bytes.Repeat([]byte("x"), 50*1024) // 50KB, several fit under the 256KB cap
+	var last *http.Response
+	for i := 0; i < 10; i++ {
+		resp, err := doReqAs(key, http.MethodPut, baseURL+"/key/chunk"+fmt.Sprint(i), bytes.NewReader(chunk))
+		if err != nil {
+			t.Fatal(err)
+		}
+		last = resp
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusInsufficientStorage {
+			break
+		}
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("put chunk%d: status = %d, want 204", i, resp.StatusCode)
+		}
+	}
+	if last.StatusCode != http.StatusInsufficientStorage {
+		t.Fatalf("expected eventual 507 storage full, last status = %d", last.StatusCode)
+	}
+}
+
+// TestStorageLimitDoesNotBlockReads fills a tenant's storage cap, then checks
+// that gets/deletes still work — only writes should be rejected once full.
+func TestStorageLimitDoesNotBlockReads(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+
+	chunk := bytes.Repeat([]byte("x"), 50*1024)
+	resp := mustReqAs(t, key, http.MethodPut, baseURL+"/key/seed", bytes.NewReader(chunk))
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("seed put: status = %d, want 204", resp.StatusCode)
+	}
+
+	for i := 0; i < 10; i++ {
+		resp, err := doReqAs(key, http.MethodPut, baseURL+"/key/chunk"+fmt.Sprint(i), bytes.NewReader(chunk))
+		if err != nil {
+			t.Fatal(err)
+		}
+		full := resp.StatusCode == http.StatusInsufficientStorage
+		resp.Body.Close()
+		if full {
+			break
+		}
+	}
+
+	resp = mustReqAs(t, key, http.MethodGet, baseURL+"/key/seed", nil)
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || string(body) != string(chunk) {
+		t.Fatalf("get after full: status = %d, body len = %d, want 200 and original chunk", resp.StatusCode, len(body))
+	}
+
+	resp2 := mustReqAs(t, key, http.MethodDelete, baseURL+"/key/seed", nil)
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete after full: status = %d, want 204", resp2.StatusCode)
 	}
 }
 

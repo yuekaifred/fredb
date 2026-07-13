@@ -67,6 +67,7 @@
               TESTROOT="$(mktemp -d)"
               export FREDB_DATA_ROOT="$TESTROOT/data"
               export FREDB_SOCK_ROOT="$TESTROOT/socks"
+              export FREDB_MAX_STORAGE_BYTES="262144"
 
               FREDB_VERBOSE="''${FREDB_VERBOSE:-0}" fredb-server &
               SERVER_PID=$!

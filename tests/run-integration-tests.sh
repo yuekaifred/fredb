@@ -6,6 +6,7 @@ export FREDB_DATA_ROOT="/tmp/fredb-test-data"
 export FREDB_SOCK_ROOT="/tmp/fredb-test-socks"
 export FREDB_API_ADDR=":8090"
 export FREDB_ADMIN_ADDR=":8091"
+export FREDB_MAX_STORAGE_BYTES="262144" # 256KB, small so storage-limit tests dont need to write real gigabytes
 
 echo "building engine-server..."
 cmake -S "$ROOT/engine-server" -B "$ROOT/engine-server/build" -DCMAKE_BUILD_TYPE=Release -Wno-dev >/dev/null

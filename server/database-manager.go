@@ -24,19 +24,21 @@ func errInternal(err error) *StoreError {
 }
 
 type DatabaseManager struct {
-	mu            sync.RWMutex
-	dbs           map[string]*Database
-	dataRoot      string
-	sockRoot      string
-	maxValueBytes int
+	mu              sync.RWMutex
+	dbs             map[string]*Database
+	dataRoot        string
+	sockRoot        string
+	maxValueBytes   int
+	maxStorageBytes uint64
 }
 
-func NewDatabaseManager(dataRoot, sockRoot string, maxValueBytes int) *DatabaseManager {
+func NewDatabaseManager(dataRoot, sockRoot string, maxValueBytes int, maxStorageBytes uint64) *DatabaseManager {
 	return &DatabaseManager{
-		dbs:           make(map[string]*Database),
-		dataRoot:      dataRoot,
-		sockRoot:      sockRoot,
-		maxValueBytes: maxValueBytes,
+		dbs:             make(map[string]*Database),
+		dataRoot:        dataRoot,
+		sockRoot:        sockRoot,
+		maxValueBytes:   maxValueBytes,
+		maxStorageBytes: maxStorageBytes,
 	}
 }
 
@@ -159,7 +161,7 @@ func (man *DatabaseManager) LoadAll() error {
 	for _, apiKey := range keys {
 		sockPath := filepath.Join(man.sockRoot, apiKey+".sock")
 		dataDirPath := filepath.Join(man.dataRoot, apiKey)
-		db, err := NewDatabase(apiKey, sockPath, dataDirPath, man.maxValueBytes)
+		db, err := NewDatabase(apiKey, sockPath, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
 		if err != nil {
 			// skip bad keys for now, think of better approach later (never)
 			log.Printf("LoadAll: skipping %s, failed to recover: %v", apiKey, err)
@@ -211,7 +213,7 @@ func (man *DatabaseManager) Provision() (string, error) {
 	sockPath := filepath.Join(man.sockRoot, apiKey+".sock")
 	dataDirPath := filepath.Join(man.dataRoot, apiKey)
 
-	db, err := NewDatabase(apiKey, sockPath, dataDirPath, man.maxValueBytes)
+	db, err := NewDatabase(apiKey, sockPath, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
 	if err != nil {
 		man.removeFromRegistry(apiKey)
 		return "", err

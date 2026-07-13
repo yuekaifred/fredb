@@ -77,6 +77,9 @@ static void handle(int fd, Fredb &db) {
         reply = "OK\n";
       }
 
+    } else if (line == "SIZE") {
+      reply = std::to_string(db.total_size()) + "\n";
+
     } else if (line.substr(0, 6) == "RANGE ") {
       std::string rest = line.substr(6);
       auto sp = rest.find(' ');

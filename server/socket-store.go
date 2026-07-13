@@ -117,6 +117,30 @@ func (s *SocketStore) Delete(path, key string) error {
 	return err
 }
 
+func (s *SocketStore) TotalSize(path string) (uint64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensureConnected(path); err != nil {
+		return 0, err
+	}
+	if _, err := fmt.Fprintln(s.conn, "SIZE"); err != nil {
+		s.reconnect(path)
+		return 0, err
+	}
+	line, err := s.r.ReadString('\n')
+	if err != nil {
+		s.reconnect(path)
+		return 0, err
+	}
+	line = strings.TrimRight(line, "\r\n")
+	n, err := strconv.ParseUint(line, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("bad response: %s", line)
+	}
+	return n, nil
+}
+
 func (s *SocketStore) Range(path, start, end string) ([]KV, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
