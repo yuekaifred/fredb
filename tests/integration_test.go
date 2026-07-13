@@ -33,6 +33,16 @@ const maxValueBytes = 50 * 1024 * 1024 // 50MB
 // tests dont need to write real gigabytes through the actual engine.
 const maxStorageBytes = 256 * 1024 // 256KB
 
+// rate limit consts mirror run-integration-tests.sh's FREDB_RATE_LIMIT_*
+// (and flake.nix's tests package). refill is frozen at 1 byte/sec so a
+// hammered-out bucket stays empty for the whole test, no flakiness from
+// refill racing the test's own wall-clock time.
+const (
+	rateLimitCapacityBytes     = 400000
+	rateLimitRefillBytesPerSec = 1
+	rateLimitFlatOverheadBytes = 500
+)
+
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -406,6 +416,103 @@ func TestStorageLimitDoesNotBlockReads(t *testing.T) {
 	defer resp2.Body.Close()
 	if resp2.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete after full: status = %d, want 204", resp2.StatusCode)
+	}
+}
+
+// TestRateLimitFlatOverheadEnforced hammers a fresh tenant with cheap
+// requests (deletes of a missing key -- flat cost only, no bytes) and
+// confirms it eventually gets 429'd purely from per-request overhead, even
+// though total bytes moved stays ~zero. capacity/flatOverhead = 10, so the
+// 11th request should be the one that gets rejected.
+func TestRateLimitFlatOverheadEnforced(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+
+	const wantSuccesses = rateLimitCapacityBytes / rateLimitFlatOverheadBytes // 10
+	successes := 0
+	limited := false
+	for i := 0; i < wantSuccesses+5; i++ {
+		resp, err := doReqAs(key, http.MethodDelete, baseURL+"/key/nope"+fmt.Sprint(i), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusNoContent:
+			successes++
+		case http.StatusTooManyRequests:
+			limited = true
+		default:
+			t.Fatalf("request %d: status = %d, want 204 or 429", i, resp.StatusCode)
+		}
+		if limited {
+			break
+		}
+	}
+	if !limited {
+		t.Fatalf("never got 429 after %d requests, capacity/flatOverhead exhaustion didnt trigger", wantSuccesses+5)
+	}
+	if successes == 0 {
+		t.Fatal("got 429 on the very first request -- flat overhead budget should allow some requests through first")
+	}
+	if successes > wantSuccesses {
+		t.Fatalf("got %d successes before 429, want at most %d (capacity/flatOverhead)", successes, wantSuccesses)
+	}
+}
+
+// TestRateLimitByteCostEnforced confirms the byte-weighted half of the cost
+// model: puts with real payload size should exhaust the bucket in far fewer
+// requests than the flat-overhead-only case above, since bytes dominate the
+// cost. two puts of 250000 bytes each cost 500+250000=250500 tokens apiece
+// against a 400000 capacity -- the first fits (250500 < 400000), the second
+// never does (250500 > the 149500 left over).
+func TestRateLimitByteCostEnforced(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+
+	payload := bytes.Repeat([]byte("y"), 250000)
+
+	resp1 := mustReqAs(t, key, http.MethodPut, baseURL+"/key/big0", bytes.NewReader(payload))
+	defer resp1.Body.Close()
+	if resp1.StatusCode != http.StatusNoContent {
+		t.Fatalf("first put: status = %d, want 204", resp1.StatusCode)
+	}
+
+	resp2 := mustReqAs(t, key, http.MethodPut, baseURL+"/key/big1", bytes.NewReader(payload))
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("second put: status = %d, want 429 (byte cost should exhaust bucket in 2 requests, not 10)", resp2.StatusCode)
+	}
+}
+
+// TestRateLimitIsolatedPerTenant confirms one tenant's exhausted bucket
+// doesnt affect another tenant's budget.
+func TestRateLimitIsolatedPerTenant(t *testing.T) {
+	victim := provision(t)
+	defer deprovision(t, victim)
+	other := provision(t)
+	defer deprovision(t, other)
+
+	limited := false
+	for i := 0; i < rateLimitCapacityBytes/rateLimitFlatOverheadBytes+5; i++ {
+		resp, err := doReqAs(victim, http.MethodDelete, baseURL+"/key/nope"+fmt.Sprint(i), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			limited = true
+			break
+		}
+	}
+	if !limited {
+		t.Fatal("victim tenant never got rate limited, cant test isolation")
+	}
+
+	resp := mustReqAs(t, other, http.MethodDelete, baseURL+"/key/unaffected", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("other tenant: status = %d, want 204 -- one tenant's exhausted bucket shouldnt affect another's", resp.StatusCode)
 	}
 }
 

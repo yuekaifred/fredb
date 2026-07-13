@@ -26,31 +26,49 @@ func errInternal(err error) *StoreError {
 type DatabaseManager struct {
 	mu              sync.RWMutex
 	dbs             map[string]*Database
+	buckets         map[string]*TokenBucket
 	dataRoot        string
 	sockRoot        string
 	maxValueBytes   int
 	maxStorageBytes uint64
+	rateLimit       RateLimitConfig
 }
 
-func NewDatabaseManager(dataRoot, sockRoot string, maxValueBytes int, maxStorageBytes uint64) *DatabaseManager {
+func NewDatabaseManager(dataRoot, sockRoot string, maxValueBytes int, maxStorageBytes uint64, rateLimit RateLimitConfig) *DatabaseManager {
 	return &DatabaseManager{
 		dbs:             make(map[string]*Database),
+		buckets:         make(map[string]*TokenBucket),
 		dataRoot:        dataRoot,
 		sockRoot:        sockRoot,
 		maxValueBytes:   maxValueBytes,
 		maxStorageBytes: maxStorageBytes,
+		rateLimit:       rateLimit,
 	}
 }
 
-func withDB[T any](man *DatabaseManager, apiKey string, fn func(*Database) (T, *StoreError)) (T, *StoreError) {
+func withDB[T any](man *DatabaseManager, apiKey string, cost float64, fn func(*Database) (T, *StoreError)) (T, *StoreError) {
 	man.mu.RLock()
-	defer man.mu.RUnlock()
 	db, ok := man.dbs[apiKey]
+	bucket := man.buckets[apiKey]
+	man.mu.RUnlock()
+
+	var zero T
 	if !ok {
-		var zero T
 		return zero, ErrUnknownAPIKey
 	}
+	if bucket != nil && !bucket.Consume(cost) {
+		return zero, ErrRateLimited
+	}
 	return fn(db)
+}
+
+func (man *DatabaseManager) chargeBytes(apiKey string, n float64) {
+	man.mu.RLock()
+	bucket := man.buckets[apiKey]
+	man.mu.RUnlock()
+	if bucket != nil {
+		bucket.Charge(n)
+	}
 }
 
 type getResult struct {
@@ -59,31 +77,45 @@ type getResult struct {
 }
 
 func (man *DatabaseManager) Get(apiKey, key string) (string, bool, *StoreError) {
-	r, err := withDB(man, apiKey, func(db *Database) (getResult, *StoreError) {
+	r, err := withDB(man, apiKey, man.rateLimit.FlatCost(), func(db *Database) (getResult, *StoreError) {
 		val, found, err := db.Get(key)
 		return getResult{val, found}, err
 	})
+	if err == nil && r.found {
+		man.chargeBytes(apiKey, man.rateLimit.ReadCost(len(r.val)))
+	}
 	return r.val, r.found, err
 }
 
 func (man *DatabaseManager) Put(apiKey, key, value string) *StoreError {
-	_, err := withDB(man, apiKey, func(db *Database) (struct{}, *StoreError) {
+	if len(value) > man.maxValueBytes {
+		return ErrTooLarge
+	}
+	_, err := withDB(man, apiKey, man.rateLimit.PutCost(len(value)), func(db *Database) (struct{}, *StoreError) {
 		return struct{}{}, db.Put(key, value)
 	})
 	return err
 }
 
 func (man *DatabaseManager) Delete(apiKey, key string) *StoreError {
-	_, err := withDB(man, apiKey, func(db *Database) (struct{}, *StoreError) {
+	_, err := withDB(man, apiKey, man.rateLimit.FlatCost(), func(db *Database) (struct{}, *StoreError) {
 		return struct{}{}, db.Delete(key)
 	})
 	return err
 }
 
 func (man *DatabaseManager) Range(apiKey, start, end string) ([]KV, *StoreError) {
-	return withDB(man, apiKey, func(db *Database) ([]KV, *StoreError) {
+	pairs, err := withDB(man, apiKey, man.rateLimit.FlatCost(), func(db *Database) ([]KV, *StoreError) {
 		return db.Range(start, end)
 	})
+	if err == nil {
+		total := 0
+		for _, kv := range pairs {
+			total += len(kv.Key) + len(kv.Value)
+		}
+		man.chargeBytes(apiKey, man.rateLimit.ReadCost(total))
+	}
+	return pairs, err
 }
 
 func (man *DatabaseManager) registryPath() string {
@@ -168,6 +200,7 @@ func (man *DatabaseManager) LoadAll() error {
 			continue
 		}
 		man.dbs[apiKey] = db
+		man.buckets[apiKey] = NewTokenBucket(man.rateLimit)
 	}
 	return nil
 }
@@ -219,6 +252,7 @@ func (man *DatabaseManager) Provision() (string, error) {
 		return "", err
 	}
 	man.dbs[apiKey] = db
+	man.buckets[apiKey] = NewTokenBucket(man.rateLimit)
 	return apiKey, nil
 }
 
@@ -234,6 +268,7 @@ func (man *DatabaseManager) Deprovision(apiKey string) *StoreError {
 		return errInternal(err)
 	}
 	delete(man.dbs, apiKey)
+	delete(man.buckets, apiKey)
 	if err := man.removeFromRegistry(apiKey); err != nil {
 		return errInternal(err)
 	}

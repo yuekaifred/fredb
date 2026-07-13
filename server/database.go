@@ -14,9 +14,9 @@ func errUnavailable(err error) *StoreError {
 }
 
 var (
-	errTooLarge         = &StoreError{Status: http.StatusRequestEntityTooLarge, Message: "value too large"}
+	ErrTooLarge         = &StoreError{Status: http.StatusRequestEntityTooLarge, Message: "value too large"}
 	errStorageFull      = &StoreError{Status: http.StatusInsufficientStorage, Message: "storage limit exceeded"}
-	errRateLimited      = &StoreError{Status: http.StatusTooManyRequests, Message: "rate limit exceeded"}
+	ErrRateLimited      = &StoreError{Status: http.StatusTooManyRequests, Message: "rate limit exceeded"}
 	errEmptyKey         = &StoreError{Status: http.StatusBadRequest, Message: "missing key"}
 	errEmptyRangeBounds = &StoreError{Status: http.StatusBadRequest, Message: "start and end required"}
 	ErrUnknownAPIKey    = &StoreError{Status: http.StatusUnauthorized, Message: "unknown api key"}
@@ -84,7 +84,7 @@ func (db *Database) Put(key, value string) *StoreError {
 		return errEmptyKey
 	}
 	if len(value) > db.maxValueBytes {
-		return errTooLarge
+		return ErrTooLarge
 	}
 	size, err := db.ensureStore().TotalSize(db.sockPath())
 	if err != nil {

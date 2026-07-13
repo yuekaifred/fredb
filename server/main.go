@@ -11,7 +11,15 @@ import (
 // note this cant be greater than 4gb for now
 const MaxValueBytes = 50 * 1024 * 1024 // 50MB
 
-const MaxStorageBytes = 1024 * 1024 * 1024 // 1GB per tenant
+const MaxStorageBytes = 1024 * 1024 * 1024 // 1gb per tenant
+
+const (
+	RateLimitCapacityBytes     = 10 * 1024 * 1024 // 10MB
+	RateLimitRefillBytesPerSec = 5 * 1024 * 1024  // 5MB/s
+	RateLimitFlatOverheadBytes = 1024             // 1KB
+	RateLimitWriteByteWeight   = 1.0              // 1.0x
+	RateLimitReadByteWeight    = 1.0 / 8.0        // 0.125x
+)
 
 type statusWriter struct {
 	http.ResponseWriter
@@ -65,6 +73,18 @@ func envOrUint64(key string, fallback uint64) uint64 {
 	return n
 }
 
+func envOrFloat64(key string, fallback float64) float64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
 func main() {
 	verbose := flag.Bool("verbose", os.Getenv("FREDB_VERBOSE") == "1", "log requests")
 	dataRoot := flag.String("data-root", envOr("FREDB_DATA_ROOT", "/tmp/fredb-data"), "root dir for per-tenant data")
@@ -72,9 +92,21 @@ func main() {
 	apiAddr := flag.String("api-addr", envOr("FREDB_API_ADDR", ":8080"), "api port address")
 	adminAddr := flag.String("admin-addr", envOr("FREDB_ADMIN_ADDR", ":8081"), "admin port address")
 	maxStorageBytes := flag.Uint64("max-storage-bytes", envOrUint64("FREDB_MAX_STORAGE_BYTES", MaxStorageBytes), "per-tenant storage cap in bytes")
+	rateLimitCapacityBytes := flag.Float64("rate-limit-capacity-bytes", envOrFloat64("FREDB_RATE_LIMIT_CAPACITY_BYTES", RateLimitCapacityBytes), "per-tenant rate limit burst capacity, bytes-equivalent")
+	rateLimitRefillBytesPerSec := flag.Float64("rate-limit-refill-bytes-per-sec", envOrFloat64("FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC", RateLimitRefillBytesPerSec), "per-tenant sustained rate limit, bytes-equivalent/sec")
+	rateLimitFlatOverheadBytes := flag.Float64("rate-limit-flat-overhead-bytes", envOrFloat64("FREDB_RATE_LIMIT_FLAT_OVERHEAD_BYTES", RateLimitFlatOverheadBytes), "fixed bytes-equivalent cost charged per request regardless of payload size")
+	rateLimitWriteByteWeight := flag.Float64("rate-limit-write-byte-weight", envOrFloat64("FREDB_RATE_LIMIT_WRITE_BYTE_WEIGHT", RateLimitWriteByteWeight), "Put byte cost weight")
+	rateLimitReadByteWeight := flag.Float64("rate-limit-read-byte-weight", envOrFloat64("FREDB_RATE_LIMIT_READ_BYTE_WEIGHT", RateLimitReadByteWeight), "Get/Range byte cost weight, relative to write weight")
 	flag.Parse()
 
-	manager := NewDatabaseManager(*dataRoot, *sockRoot, MaxValueBytes, *maxStorageBytes)
+	rateLimit := RateLimitConfig{
+		CapacityBytes:     *rateLimitCapacityBytes,
+		RefillBytesPerSec: *rateLimitRefillBytesPerSec,
+		FlatOverheadBytes: *rateLimitFlatOverheadBytes,
+		WriteByteWeight:   *rateLimitWriteByteWeight,
+		ReadByteWeight:    *rateLimitReadByteWeight,
+	}
+	manager := NewDatabaseManager(*dataRoot, *sockRoot, MaxValueBytes, *maxStorageBytes, rateLimit)
 	if err := manager.LoadAll(); err != nil {
 		log.Fatal(err)
 	}

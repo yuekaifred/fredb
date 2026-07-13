@@ -68,6 +68,9 @@
               export FREDB_DATA_ROOT="$TESTROOT/data"
               export FREDB_SOCK_ROOT="$TESTROOT/socks"
               export FREDB_MAX_STORAGE_BYTES="262144"
+              export FREDB_RATE_LIMIT_CAPACITY_BYTES="400000"
+              export FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC="1"
+              export FREDB_RATE_LIMIT_FLAT_OVERHEAD_BYTES="500"
 
               FREDB_VERBOSE="''${FREDB_VERBOSE:-0}" fredb-server &
               SERVER_PID=$!
