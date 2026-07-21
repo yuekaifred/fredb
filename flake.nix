@@ -40,9 +40,16 @@
           fredb-server = pkgs.buildGoModule {
             pname = "fredb-server";
             version = "0.1.0";
-            src = ./server;
-            vendorHash = null;
+            src = pkgs.lib.fileset.toSource {
+              root = ./.;
+              fileset = pkgs.lib.fileset.unions [ ./server ./website ];
+            };
+            modRoot = "server";
+            vendorHash = "sha256-MIx36cRnzFMGvvDAfKBEW6e2dthx5U17nRjK2Pz/7qQ=";
             doCheck = false;
+            postInstall = ''
+              cp -r ../website/static $out/static
+            '';
           };
 
           start = pkgs.writeShellApplication {
@@ -116,7 +123,7 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.cmake pkgs.clang pkgs.go pkgs.socat ];
+          packages = [ pkgs.cmake pkgs.clang pkgs.go pkgs.socat pkgs.templ self.packages.${system}.engine-server ];
         };
       }
     );

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"fredb-website"
 )
 
 // note this cant be greater than 4gb for now
@@ -90,7 +92,7 @@ func main() {
 	dataRoot := flag.String("data-root", envOr("FREDB_DATA_ROOT", "/tmp/fredb-data"), "root dir for per-tenant data")
 	sockRoot := flag.String("sock-root", envOr("FREDB_SOCK_ROOT", "/tmp/fredb-socks"), "root dir for per-tenant engine sockets")
 	apiAddr := flag.String("api-addr", envOr("FREDB_API_ADDR", ":8080"), "api port address")
-	adminAddr := flag.String("admin-addr", envOr("FREDB_ADMIN_ADDR", ":8081"), "admin port address")
+	websiteAddr := flag.String("website-addr", envOr("FREDB_WEBSITE_ADDR", ":8081"), "website port address")
 	maxStorageBytes := flag.Uint64("max-storage-bytes", envOrUint64("FREDB_MAX_STORAGE_BYTES", MaxStorageBytes), "per-tenant storage cap in bytes")
 	rateLimitCapacityBytes := flag.Float64("rate-limit-capacity-bytes", envOrFloat64("FREDB_RATE_LIMIT_CAPACITY_BYTES", RateLimitCapacityBytes), "per-tenant rate limit burst capacity, bytes-equivalent")
 	rateLimitRefillBytesPerSec := flag.Float64("rate-limit-refill-bytes-per-sec", envOrFloat64("FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC", RateLimitRefillBytesPerSec), "per-tenant sustained rate limit, bytes-equivalent/sec")
@@ -111,12 +113,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	admin := NewAdminHandler(manager)
+	web := website.NewHandler(manager)
 	api := NewAPIHandler(manager)
 
 	go func() {
-		log.Printf("admin at http://localhost%s", *adminAddr)
-		log.Fatal(http.ListenAndServe(*adminAddr, withLogging(admin, *verbose)))
+		log.Printf("website at http://localhost%s", *websiteAddr)
+		log.Fatal(http.ListenAndServe(*websiteAddr, withLogging(web, *verbose)))
 	}()
 
 	log.Printf("api at http://localhost%s", *apiAddr)

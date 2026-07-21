@@ -1,17 +1,14 @@
-# compiled go binaries
 server/fredb-server
 tests/tests
 *.test
 
-# c++ build dirs (cmake -B can be pointed at either name across sessions)
 engine-server/build/
 engine-server/sbuild/
 
-# nix
 result
 result-*
+.direnv/
 
-# per-tenant runtime data
 data/
 *.sock
 keys.txt
