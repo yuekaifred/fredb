@@ -1,6 +1,9 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+	"os"
+)
 
 type StoreError struct {
 	Status  int
@@ -22,57 +25,68 @@ var (
 	ErrUnknownAPIKey    = &StoreError{Status: http.StatusUnauthorized, Message: "unknown api key"}
 )
 
+var errPaused = &StoreError{Status: http.StatusServiceUnavailable, Message: "database is paused"}
+
 type Database struct {
 	APIKey          string
+	dataDirPath     string
 	maxValueBytes   int
 	maxStorageBytes uint64
 
-	engine *EngineProcess
-	store  *SocketStore
+	engine *CgoEngine
 }
 
-func NewDatabase(apiKey, sockPath, dataDirPath string, maxValueBytes int, maxStorageBytes uint64) (*Database, error) {
-	engine := &EngineProcess{SockPath: sockPath, DataDirPath: dataDirPath}
-	if err := engine.Spawn(); err != nil {
+func NewDatabase(apiKey, dataDirPath string, maxValueBytes int, maxStorageBytes uint64) (*Database, error) {
+	engine, err := OpenCgoEngine(dataDirPath)
+	if err != nil {
 		return nil, err
 	}
 	return &Database{
 		APIKey:          apiKey,
+		dataDirPath:     dataDirPath,
 		maxValueBytes:   maxValueBytes,
 		maxStorageBytes: maxStorageBytes,
 		engine:          engine,
 	}, nil
 }
 
-// dont create store until we actually use it!
-func (db *Database) ensureStore() *SocketStore {
-	if db.store == nil {
-		db.store = &SocketStore{}
-	}
-	return db.store
-}
-
-func (db *Database) sockPath() string {
-	return db.engine.SockPath
-}
-
 func (db *Database) DestroyCompletely() error {
-	return db.engine.DestroyCompletely()
+	if db.engine != nil {
+		db.engine.Close()
+		db.engine = nil
+	}
+	return os.RemoveAll(db.dataDirPath)
 }
 
 func (db *Database) Pause() error {
-	return db.engine.Destroy()
+	if db.engine == nil {
+		return nil
+	}
+	db.engine.Close()
+	db.engine = nil
+	return nil
 }
 
 func (db *Database) Resume() error {
-	return db.engine.Spawn()
+	if db.engine != nil {
+		return nil
+	}
+	engine, err := OpenCgoEngine(db.dataDirPath)
+	if err != nil {
+		return err
+	}
+	db.engine = engine
+	return nil
 }
 
 func (db *Database) Get(key string) (string, bool, *StoreError) {
 	if key == "" {
 		return "", false, errEmptyKey
 	}
-	val, ok, err := db.ensureStore().Get(db.sockPath(), key)
+	if db.engine == nil {
+		return "", false, errPaused
+	}
+	val, ok, err := db.engine.Get(key)
 	if err != nil {
 		return "", false, errUnavailable(err)
 	}
@@ -86,14 +100,17 @@ func (db *Database) Put(key, value string) *StoreError {
 	if len(value) > db.maxValueBytes {
 		return ErrTooLarge
 	}
-	size, err := db.ensureStore().TotalSize(db.sockPath())
+	if db.engine == nil {
+		return errPaused
+	}
+	size, err := db.engine.TotalSize()
 	if err != nil {
 		return errUnavailable(err)
 	}
 	if size >= db.maxStorageBytes {
 		return errStorageFull
 	}
-	if err := db.ensureStore().Put(db.sockPath(), key, value); err != nil {
+	if err := db.engine.Put(key, value); err != nil {
 		return errUnavailable(err)
 	}
 	return nil
@@ -103,7 +120,10 @@ func (db *Database) Delete(key string) *StoreError {
 	if key == "" {
 		return errEmptyKey
 	}
-	if err := db.ensureStore().Delete(db.sockPath(), key); err != nil {
+	if db.engine == nil {
+		return errPaused
+	}
+	if err := db.engine.Delete(key); err != nil {
 		return errUnavailable(err)
 	}
 	return nil
@@ -118,7 +138,10 @@ func (db *Database) Range(start, end string) ([]KV, *StoreError) {
 	if start == "" || end == "" {
 		return nil, errEmptyRangeBounds
 	}
-	pairs, err := db.ensureStore().Range(db.sockPath(), start, end)
+	if db.engine == nil {
+		return nil, errPaused
+	}
+	pairs, err := db.engine.Range(start, end)
 	if err != nil {
 		return nil, errUnavailable(err)
 	}

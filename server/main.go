@@ -88,7 +88,6 @@ func envOrFloat64(key string, fallback float64) float64 {
 func main() {
 	verbose := flag.Bool("verbose", os.Getenv("FREDB_VERBOSE") == "1", "log requests")
 	dataRoot := flag.String("data-root", envOr("FREDB_DATA_ROOT", "/tmp/fredb-data"), "root dir for per-tenant data")
-	sockRoot := flag.String("sock-root", envOr("FREDB_SOCK_ROOT", "/tmp/fredb-socks"), "root dir for per-tenant engine sockets")
 	apiAddr := flag.String("api-addr", envOr("FREDB_API_ADDR", ":8080"), "api port address")
 	adminAddr := flag.String("admin-addr", envOr("FREDB_ADMIN_ADDR", ":8081"), "admin port address")
 	maxStorageBytes := flag.Uint64("max-storage-bytes", envOrUint64("FREDB_MAX_STORAGE_BYTES", MaxStorageBytes), "per-tenant storage cap in bytes")
@@ -106,7 +105,7 @@ func main() {
 		WriteByteWeight:   *rateLimitWriteByteWeight,
 		ReadByteWeight:    *rateLimitReadByteWeight,
 	}
-	manager := NewDatabaseManager(*dataRoot, *sockRoot, MaxValueBytes, *maxStorageBytes, rateLimit)
+	manager := NewDatabaseManager(*dataRoot, MaxValueBytes, *maxStorageBytes, rateLimit)
 	if err := manager.LoadAll(); err != nil {
 		log.Fatal(err)
 	}

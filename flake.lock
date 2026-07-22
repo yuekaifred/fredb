@@ -21,11 +21,11 @@
     "fredb-engine": {
       "flake": false,
       "locked": {
-        "lastModified": 1782498865,
-        "narHash": "sha256-opw7+rwzc73G55at4AUeV387m3qqVHpVFxrhQJEkmxg=",
+        "lastModified": 1784693237,
+        "narHash": "sha256-r3nQoXS6V1AMscJNxJmUgFoFacoH91mH17wSNfPbh80=",
         "owner": "yuekaifred",
         "repo": "fredb-engine",
-        "rev": "8d14567f35ef283c4b6d7d106054a567d0f15828",
+        "rev": "7e901325812c66964da36121cefa10a39a5f5e0e",
         "type": "github"
       },
       "original": {
