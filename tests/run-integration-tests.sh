@@ -3,34 +3,30 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export FREDB_DATA_ROOT="/tmp/fredb-test-data"
-export FREDB_SOCK_ROOT="/tmp/fredb-test-socks"
 export FREDB_API_ADDR=":8090"
-export FREDB_ADMIN_ADDR=":8091"
+export FREDB_WEBSITE_ADDR=":8091"
 export FREDB_MAX_STORAGE_BYTES="262144" # 256KB, small so storage-limit tests dont need to write real gigabytes
 export FREDB_RATE_LIMIT_CAPACITY_BYTES="400000"
 export FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC="1"    # near-frozen, tests run in well under a second
 export FREDB_RATE_LIMIT_FLAT_OVERHEAD_BYTES="500"
 
-echo "building engine-server..."
-cmake -S "$ROOT/engine-server" -B "$ROOT/engine-server/build" -DCMAKE_BUILD_TYPE=Release -Wno-dev >/dev/null
-cmake --build "$ROOT/engine-server/build" --parallel >/dev/null
+echo "building fredb engine..."
+cmake -S "$ROOT/engine" -B "$ROOT/engine/build" -DCMAKE_BUILD_TYPE=Release -Wno-dev >/dev/null
+cmake --build "$ROOT/engine/build" --target fredb_core --parallel >/dev/null
 
 echo "building fredb-server..."
-(cd "$ROOT/server" && CGO_ENABLED=0 go build -o fredb-server .)
+(cd "$ROOT/server" && CGO_ENABLED=1 CXX=clang++ go build -o fredb-server .)
 
-pkill -f engine-server 2>/dev/null || true
 pkill -f "$ROOT/server/fredb-server" 2>/dev/null || true
-rm -rf "$FREDB_DATA_ROOT" "$FREDB_SOCK_ROOT"
+rm -rf "$FREDB_DATA_ROOT"
 
 cleanup() {
 	kill "$SERVER_PID" 2>/dev/null || true
 	wait "$SERVER_PID" 2>/dev/null || true
-	pkill -f engine-server 2>/dev/null || true
-	rm -rf "$FREDB_DATA_ROOT" "$FREDB_SOCK_ROOT"
+	rm -rf "$FREDB_DATA_ROOT"
 }
 trap cleanup EXIT
 
-export PATH="$ROOT/engine-server/build:$PATH"
 "$ROOT/server/fredb-server" &
 SERVER_PID=$!
 

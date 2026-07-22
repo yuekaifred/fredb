@@ -28,18 +28,16 @@ type DatabaseManager struct {
 	dbs             map[string]*Database
 	buckets         map[string]*TokenBucket
 	dataRoot        string
-	sockRoot        string
 	maxValueBytes   int
 	maxStorageBytes uint64
 	rateLimit       RateLimitConfig
 }
 
-func NewDatabaseManager(dataRoot, sockRoot string, maxValueBytes int, maxStorageBytes uint64, rateLimit RateLimitConfig) *DatabaseManager {
+func NewDatabaseManager(dataRoot string, maxValueBytes int, maxStorageBytes uint64, rateLimit RateLimitConfig) *DatabaseManager {
 	return &DatabaseManager{
 		dbs:             make(map[string]*Database),
 		buckets:         make(map[string]*TokenBucket),
 		dataRoot:        dataRoot,
-		sockRoot:        sockRoot,
 		maxValueBytes:   maxValueBytes,
 		maxStorageBytes: maxStorageBytes,
 		rateLimit:       rateLimit,
@@ -131,7 +129,7 @@ func (man *DatabaseManager) readRegistry() ([]string, error) {
 		return nil, err
 	}
 	var keys []string
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if line != "" {
 			keys = append(keys, line)
 		}
@@ -173,10 +171,7 @@ func (man *DatabaseManager) removeFromRegistry(apiKey string) error {
 }
 
 func (man *DatabaseManager) ensureRoots() error {
-	if err := os.MkdirAll(man.dataRoot, 0755); err != nil {
-		return err
-	}
-	return os.MkdirAll(man.sockRoot, 0755)
+	return os.MkdirAll(man.dataRoot, 0755)
 }
 
 func (man *DatabaseManager) LoadAll() error {
@@ -191,9 +186,8 @@ func (man *DatabaseManager) LoadAll() error {
 		return err
 	}
 	for _, apiKey := range keys {
-		sockPath := filepath.Join(man.sockRoot, apiKey+".sock")
 		dataDirPath := filepath.Join(man.dataRoot, apiKey)
-		db, err := NewDatabase(apiKey, sockPath, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
+		db, err := NewDatabase(apiKey, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
 		if err != nil {
 			// skip bad keys for now, think of better approach later (never)
 			log.Printf("LoadAll: skipping %s, failed to recover: %v", apiKey, err)
@@ -206,7 +200,7 @@ func (man *DatabaseManager) LoadAll() error {
 }
 
 func (man *DatabaseManager) generateAPIKey() (string, error) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		b := make([]byte, 24)
 		if _, err := rand.Read(b); err != nil {
 			return "", err
@@ -243,10 +237,9 @@ func (man *DatabaseManager) Provision() (string, error) {
 		return "", err
 	}
 
-	sockPath := filepath.Join(man.sockRoot, apiKey+".sock")
 	dataDirPath := filepath.Join(man.dataRoot, apiKey)
 
-	db, err := NewDatabase(apiKey, sockPath, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
+	db, err := NewDatabase(apiKey, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
 	if err != nil {
 		man.removeFromRegistry(apiKey)
 		return "", err

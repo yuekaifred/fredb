@@ -12,31 +12,6 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in {
         packages = {
-          engine-server = pkgs.stdenv.mkDerivation {
-            pname = "engine-server";
-            version = "0.1.0";
-            src = pkgs.lib.cleanSourceWith {
-              src = ./engine-server;
-              filter = path: type: !(pkgs.lib.hasInfix "/build" path);
-            };
-            nativeBuildInputs = [ pkgs.cmake pkgs.clang ];
-            configurePhase = ''
-              ln -s ${fredb-engine} ../engine
-              cmake -S . -B build \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_C_COMPILER=clang \
-                -DCMAKE_CXX_COMPILER=clang++ \
-                -Wno-dev
-            '';
-            buildPhase = ''
-              cmake --build build --parallel
-            '';
-            installPhase = ''
-              mkdir -p $out/bin
-              cp build/engine-server $out/bin/
-            '';
-          };
-
           fredb-server = pkgs.buildGoModule {
             pname = "fredb-server";
             version = "0.1.0";
@@ -47,6 +22,25 @@
             modRoot = "server";
             vendorHash = "sha256-MIx36cRnzFMGvvDAfKBEW6e2dthx5U17nRjK2Pz/7qQ=";
             doCheck = false;
+            nativeBuildInputs = [ pkgs.cmake pkgs.clang ];
+            env = {
+              CGO_ENABLED = "1";
+              CXX = "clang++";
+            };
+            preBuild = ''
+              mkdir -p ../engine
+              cp -r ${fredb-engine}/. ../engine/
+              chmod -R u+w ../engine
+              (
+                cd ../engine
+                cmake -S . -B build \
+                  -DCMAKE_BUILD_TYPE=Release \
+                  -DCMAKE_C_COMPILER=clang \
+                  -DCMAKE_CXX_COMPILER=clang++ \
+                  -Wno-dev
+                cmake --build build --target fredb_core --parallel
+              )
+            '';
             postInstall = ''
               cp -r ../website/static $out/static
             '';
@@ -54,26 +48,21 @@
 
           start = pkgs.writeShellApplication {
             name = "fredb-start";
-            runtimeInputs = [ self.packages.${system}.engine-server self.packages.${system}.fredb-server ];
+            runtimeInputs = [ self.packages.${system}.fredb-server ];
             text = ''
-              pkill -f engine-server 2>/dev/null || true
               pkill -f fredb-server  2>/dev/null || true
-
-              trap 'pkill -f engine-server 2>/dev/null || true' EXIT
               FREDB_VERBOSE="''${FREDB_VERBOSE:-0}" fredb-server
             '';
           };
 
           tests = pkgs.writeShellApplication {
             name = "fredb-tests";
-            runtimeInputs = [ self.packages.${system}.engine-server self.packages.${system}.fredb-server pkgs.curl pkgs.go ];
+            runtimeInputs = [ self.packages.${system}.fredb-server pkgs.curl pkgs.go ];
             text = ''
-              pkill -f engine-server 2>/dev/null || true
               pkill -f fredb-server  2>/dev/null || true
 
               TESTROOT="$(mktemp -d)"
               export FREDB_DATA_ROOT="$TESTROOT/data"
-              export FREDB_SOCK_ROOT="$TESTROOT/socks"
               export FREDB_MAX_STORAGE_BYTES="262144"
               export FREDB_RATE_LIMIT_CAPACITY_BYTES="400000"
               export FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC="1"
@@ -90,7 +79,6 @@
               cleanup() {
                 kill "$SERVER_PID" 2>/dev/null || true
                 wait "$SERVER_PID" 2>/dev/null || true
-                pkill -f engine-server 2>/dev/null || true
                 rm -rf "$TESTROOT"
               }
               trap cleanup EXIT

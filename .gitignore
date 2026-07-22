@@ -2,8 +2,7 @@ server/fredb-server
 tests/tests
 *.test
 
-engine-server/build/
-engine-server/sbuild/
+engine/build/
 
 result
 result-*
