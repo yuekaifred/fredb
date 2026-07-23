@@ -1,0 +1,75 @@
+package website
+
+templ usageSection() {
+	<section class="demo">
+		<h2>Usage</h2>
+		<div class="lang-tabs">
+			<button type="button" class="lang-tab active" onclick="setLang('curl', this)">curl</button>
+			<button type="button" class="lang-tab" onclick="setLang('js', this)">JavaScript</button>
+			<button type="button" class="lang-tab" onclick="setLang('go', this)">Go</button>
+			<button type="button" class="lang-tab" onclick="setLang('python', this)">Python</button>
+			<button type="button" class="lang-tab" onclick="setLang('rust', this)">Rust</button>
+			<button type="button" class="lang-tab" onclick="setLang('ruby', this)">Ruby</button>
+			<button type="button" class="lang-tab" onclick="setLang('java', this)">Java</button>
+			<button type="button" class="lang-tab" onclick="setLang('php', this)">PHP</button>
+		</div>
+		<div class="demo-grid">
+			for _, e := range endpoints {
+				@demoCell(e)
+			}
+		</div>
+	</section>
+}
+
+templ demoCell(e Endpoint) {
+	<div class="demo-cell" data-endpoint={ e.ID }>
+		<span class={ e.MethodClass() }>{ e.Method }</span>
+		<code>@templ.Raw(e.PathHTML())</code>
+		<p>{ e.Desc }</p>
+		<table class="shape">
+			for _, r := range e.Rows {
+				<tr><th>{ r.Label }</th><td>{ r.Value }</td></tr>
+			}
+		</table>
+		<pre class="example">loading...</pre>
+	</div>
+}
+
+templ usageScript() {
+	<script>
+		var EXT = {
+			curl: "sh", js: "js", go: "go", python: "py",
+			rust: "rs", ruby: "rb", java: "java", php: "php"
+		};
+		var VARS = /\b(YOUR_API_KEY|YOUR_KEY|YOUR_VALUE|START_KEY|END_KEY)\b/g;
+		function highlight(text) {
+			var escaped = text
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;");
+			return escaped.replace(VARS, '<span class="path-param">$1</span>');
+		}
+		function loadExamples(lang) {
+			var ext = EXT[lang];
+			document.querySelectorAll(".demo-cell").forEach(function(cell) {
+				var endpoint = cell.dataset.endpoint;
+				var pre = cell.querySelector(".example");
+				fetch("/static/_examples/" + endpoint + "/example." + ext)
+					.then(function(r) { return r.text(); })
+					.then(function(t) { pre.innerHTML = highlight(t); })
+					.catch(function() { pre.textContent = "failed to load example"; });
+			});
+		}
+		function setLang(lang, btn) {
+			document.body.dataset.lang = lang;
+			document.querySelectorAll(".lang-tab").forEach(function(b) {
+				b.classList.remove("active");
+			});
+			btn.classList.add("active");
+			loadExamples(lang);
+		}
+		window.addEventListener("DOMContentLoaded", function() {
+			loadExamples("curl");
+		});
+	</script>
+}

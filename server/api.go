@@ -10,7 +10,6 @@ import (
 
 func NewAPIHandler(man *DatabaseManager) http.Handler {
 	api := http.NewServeMux()
-	stats := NewStatsTracker()
 
 	api.HandleFunc("/key/", func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get("X-Api-Key")
@@ -70,7 +69,5 @@ func NewAPIHandler(man *DatabaseManager) http.Handler {
 		json.NewEncoder(w).Encode(pairs)
 	})
 
-	api.HandleFunc("/stats", stats.Handler())
-
-	return WithCORS(stats.Middleware(api))
+	return WithCORS(api)
 }

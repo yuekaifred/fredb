@@ -20,7 +20,7 @@
               fileset = pkgs.lib.fileset.unions [ ./server ./website ];
             };
             modRoot = "server";
-            vendorHash = "sha256-MIx36cRnzFMGvvDAfKBEW6e2dthx5U17nRjK2Pz/7qQ=";
+            vendorHash = "sha256-ezPZLCu6cFhc1EFwN4xKdI0PNkud1WT9i9AWnAHARI0=";
             doCheck = false;
             nativeBuildInputs = [ pkgs.cmake pkgs.clang ];
             env = {
@@ -111,7 +111,7 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = [ pkgs.cmake pkgs.clang pkgs.go pkgs.socat pkgs.templ self.packages.${system}.engine-server ];
+          packages = [ pkgs.cmake pkgs.clang pkgs.go pkgs.templ ];
         };
       }
     );
