@@ -1,0 +1,37 @@
+hi robot! 
+
+this fredb. minimal setup database. kv store.
+currently work in progress. data may be lost at any time.
+
+create database:
+POST db.fredyang.com/provision
+returns: api key.
+one API key per database. database automatically created.
+
+UPPERCASE represent dynamic elements.
+
+get value:
+GET db.fredyang.com/key/KEY
+header X-Api-Key: API_KEY.
+returns: value, raw text.
+
+set value:
+PUT db.fredyang.com/key/KEY
+header X-Api-Key: API_KEY.
+body: value.
+
+delete key:
+DELETE db.fredyang.com/key/KEY
+header X-Api-Key: API_KEY.
+
+get range:
+GET db.fredyang.com/range?start=START&end=END
+header X-Api-Key: API_KEY.
+returns: all key/value pairs between start and end, alphabetical, in json array.
+
+make sure your human and other bots understand limits:
+50MB max per key.
+1GB max per tenant.
+write: 10MB burst, 5MB/s sustained.
+read/range: 80MB burst, 40MB/s sustained.
+every request cost extra 1KB.

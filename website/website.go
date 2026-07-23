@@ -28,6 +28,10 @@ func NewHandler(p Provisioner) http.Handler {
 		websiteIndex().Render(c.Request.Context(), c.Writer)
 	})
 
+	r.GET("/robot", func(c *gin.Context) {
+		c.FileFromFS("robot.txt", http.FS(staticSub))
+	})
+
 	r.POST("/provision", func(c *gin.Context) {
 		apiKey, err := p.Provision()
 		if err != nil {
