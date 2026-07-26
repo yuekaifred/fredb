@@ -1,39 +1,62 @@
 package website
 
 templ favicon() {
-	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+Cgk8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iIzAwZTY3NiIvPgo8L3N2Zz4K"/>
+	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMDBlNjc2Ii8+PC9zdmc+"/>
 }
 
 templ stylesheet() {
 	<style>
 		@font-face {
-			font-family: "Comic Mono";
-			src: url("https://cdn.jsdelivr.net/gh/dtinth/comic-mono-font@master/ComicMono.ttf") format("truetype");
+			font-family: "Share Tech Mono";
+			src: url("https://fonts.gstatic.com/s/sharetechmono/v15/J7aHnp1uDWRBEqV98dVQztYldFcLowEF.woff2") format("woff2");
 			font-weight: normal;
-			font-style: normal;
-		}
-		@font-face {
-			font-family: "Comic Mono";
-			src: url("https://cdn.jsdelivr.net/gh/dtinth/comic-mono-font@master/ComicMono-Bold.ttf") format("truetype");
-			font-weight: bold;
 			font-style: normal;
 		}
 		:root {
 			--page-margin-x: 1.5rem;
 			--page-margin-top: 1.5rem;
 			--accent-bg: #00e676;
-			--accent-text: #003d20;
+			--accent-text: #00190c;
 			--accent-shadow: #00b359;
-			--soft-bg: #f5f5f5;
-			--soft-text: #555;
-			--soft-border: #d8d8d8;
-			--soft-shadow: #ccc;
+			--bg: #1c1c1c;
+			--bg-raised: #232323;
+			--soft-bg: #262626;
+			--soft-text: #8c8c8c;
+			--soft-border: #3d3d3d;
+			--soft-shadow: #0e0e0e;
+			--text: #a8a8a8;
+			--text-bright: #cfcfcf;
+			--disabled-text: #4a4a4a;
+			--topbar-height: 4rem;
+			--control-height: 3.5rem;
+			--code-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
+		}
+		html[data-theme="light"] {
+			--accent-shadow: #00a352;
+			--bg: #d4d4d4;
+			--bg-raised: #c8c8c8;
+			--soft-bg: #c0c0c0;
+			--soft-text: #5c5c5c;
+			--soft-border: #a0a0a0;
+			--soft-shadow: #9a9a9a;
+			--text: #444444;
+			--text-bright: #161616;
+			--disabled-text: #9a9a9a;
 		}
 		* {
-			font-family: "Comic Mono", monospace;
+			font-family: "Share Tech Mono", ui-monospace, "SF Mono", Consolas, monospace;
+			box-sizing: border-box;
+		}
+		html {
+			font-size: 108%;
 		}
 		body {
 			margin: 0;
+			padding-top: var(--topbar-height);
+			background:
+				repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+				var(--bg);
+			color: var(--text);
 		}
 		.page {
 			max-width: 1000px;
@@ -41,18 +64,56 @@ templ stylesheet() {
 			padding: 0 var(--page-margin-x);
 			box-sizing: border-box;
 		}
+		.topbar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			z-index: 100;
+			background: var(--bg-raised);
+			border-bottom: 1px solid var(--soft-border);
+			box-sizing: border-box;
+			--control-height: 2.5rem;
+		}
+		.topbar-inner {
+			display: flex;
+			align-items: center;
+			gap: 1.5rem;
+			max-width: 1000px;
+			margin: 0 auto;
+			padding: 0.75rem var(--page-margin-x);
+			box-sizing: border-box;
+		}
+		.topbar .primary-btn {
+			width: auto;
+			font-size: 1rem;
+			padding: 0 1.25rem;
+			box-shadow: 0 2px 0 var(--accent-shadow);
+			transform: translateY(-2px);
+		}
+		.topbar .primary-btn:active {
+			transform: translateY(0);
+			box-shadow: 0 0 0 var(--accent-shadow);
+		}
+		.topbar .key-field {
+			margin-top: 0;
+		}
+		.topbar .key-field .key-display {
+			font-size: 0.9rem;
+			padding: 0 0.75rem;
+		}
 		.header {
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
 			margin-top: var(--page-margin-top);
 			padding-bottom: 1rem;
-			border-bottom: 1px solid #eee;
+			border-bottom: 1px solid var(--soft-border);
 			box-sizing: border-box;
 		}
 		.header nav a {
 			margin-left: 1.5rem;
-			color: #777;
+			color: var(--soft-text);
 			text-decoration: none;
 			font-weight: bold;
 			font-size: 0.9rem;
@@ -61,25 +122,17 @@ templ stylesheet() {
 			transition: color 0.1s ease, box-shadow 0.1s ease;
 		}
 		.header nav a:hover {
-			color: #000;
+			color: var(--text-bright);
 			box-shadow: 0 2px 0 var(--accent-bg);
 		}
 		.header span {
 			font-size: 1.5rem;
 			font-weight: bold;
+			color: var(--text-bright);
 		}
 		.hero {
-			display: flex;
-			flex-direction: row;
-			align-items: flex-start;
-			gap: 2rem;
 			margin-top: 3rem;
 			box-sizing: border-box;
-		}
-		.hero-action {
-			display: flex;
-			flex-direction: column;
-			flex: 0 0 auto;
 		}
 		.hero-copy {
 			display: flex;
@@ -89,16 +142,53 @@ templ stylesheet() {
 		.hero-copy h1 {
 			margin-top: 0;
 			font-size: 1.75rem;
+			font-weight: bold;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.02em;
+		}
+		.hero-copy p {
+			color: var(--soft-text);
+		}
+		.robot-note {
+			font-style: normal;
+			font-size: 0.9rem;
+			color: var(--soft-text);
+		}
+		.robot-note code {
+			font-family: var(--code-font);
+			font-weight: normal;
+			font-size: 0.85rem;
+			color: var(--text);
+			background: var(--soft-bg);
+			border: 1px solid var(--soft-border);
+			padding: 0.1rem 0.4rem;
+		}
+		.robot-link {
+			color: var(--accent-bg);
+			font-weight: bold;
+			text-decoration: none;
+			box-shadow: 0 2px 0 var(--accent-shadow);
+		}
+		.robot-link:hover {
+			color: #1aeb87;
 		}
 		.primary-btn {
 			font-family: inherit;
 			font-size: 1.5rem;
 			font-weight: bold;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			display: flex;
+			align-items: center;
+			justify-content: center;
 			background: var(--accent-bg);
 			color: var(--accent-text);
-			border: none;
-			border-radius: 0.5rem;
-			padding: 1rem 1.75rem;
+			border: 1px solid var(--accent-shadow);
+			border-radius: 0;
+			box-sizing: border-box;
+			height: var(--control-height);
+			padding: 0 1.75rem;
 			width: 20rem;
 			white-space: nowrap;
 			cursor: pointer;
@@ -114,62 +204,62 @@ templ stylesheet() {
 		}
 		.key-field {
 			display: flex;
-			align-items: stretch;
+			align-items: center;
 			margin-top: 1.25rem;
-			width: 100%;
-			max-width: 28rem;
+			min-width: 0;
 		}
-		.key-field textarea {
-			font-family: inherit;
+		.key-display {
+			position: relative;
+			display: flex;
+			align-items: center;
 			font-size: 1.15rem;
-			flex: 1 1 auto;
-			resize: none;
-			overflow-wrap: break-word;
-			white-space: pre-wrap;
-			padding: 1rem 1.25rem;
-			min-height: 3.5rem;
+			min-width: 0;
+			white-space: nowrap;
+			overflow: hidden;
+			padding: 0 1.25rem;
+			height: var(--control-height);
 			box-sizing: border-box;
 			background: var(--soft-bg);
 			border: 1px solid var(--soft-border);
-			border-right: none;
-			border-radius: 0.5rem 0 0 0.5rem;
 			letter-spacing: 0.15rem;
-			color: var(--soft-text);
+			color: var(--text);
+			cursor: pointer;
 		}
-		.copy-btn {
+		.key-display .key-prefix {
+			user-select: none;
+			color: var(--soft-text);
+			margin-right: 0.5rem;
+		}
+		.key-display .key-value {
+			user-select: text;
+		}
+		.key-display .key-mask {
+			position: relative;
+			top: 0.2em;
+			user-select: none;
+		}
+		.key-display .key-hover-label {
+			position: absolute;
+			inset: 0;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: 2.75rem;
-			flex: 0 0 auto;
-			background: var(--soft-bg);
-			color: var(--soft-text);
-			border: 1px solid var(--soft-border);
-			border-radius: 0 0.5rem 0.5rem 0;
-			cursor: pointer;
-			box-shadow: 0 3px 0 var(--soft-shadow);
-			transform: translateY(-3px);
-			transition: color 0.15s ease, background 0.15s ease, transform 0.05s ease, box-shadow 0.05s ease;
-		}
-		.copy-btn:hover {
-			background: #e0e0e0;
-		}
-		.copy-btn:active {
-			transform: translateY(0);
-			box-shadow: 0 0 0 var(--soft-shadow);
-		}
-		.copy-btn:disabled {
-			color: #ccc;
-			background: var(--soft-bg);
-			cursor: not-allowed;
-			box-shadow: none;
-			transform: translateY(0);
-			pointer-events: none;
-		}
-		.copy-btn.copied {
-			color: var(--accent-text);
 			background: var(--accent-bg);
-			box-shadow: 0 3px 0 var(--accent-shadow);
+			color: var(--accent-text);
+			font-weight: bold;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.1s ease;
+		}
+		.key-display:hover .key-hover-label,
+		.key-display.show-label .key-hover-label {
+			opacity: 1;
+		}
+		.key-display.disabled {
+			cursor: not-allowed;
+			color: var(--disabled-text);
 		}
 		.demo {
 			margin-top: 3rem;
@@ -177,6 +267,69 @@ templ stylesheet() {
 		}
 		.demo h2 {
 			font-size: 1.4rem;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			border-bottom: 1px solid var(--soft-border);
+			padding-bottom: 0.5rem;
+		}
+		.endpoint-list {
+			margin-top: 1rem;
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+		}
+		.endpoint-row {
+			border: 1px solid var(--soft-border);
+			background: var(--bg-raised);
+			padding: 0.85rem 1rem;
+		}
+		.endpoint-row-head {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+		}
+		.endpoint-row-head code {
+			font-family: var(--code-font);
+			font-size: 0.95rem;
+			color: var(--text);
+		}
+		.path-param {
+			font-style: normal;
+			font-weight: bold;
+			color: var(--text-bright);
+		}
+		.method {
+			display: inline-block;
+			flex: 0 0 auto;
+			width: 4.5rem;
+			text-align: center;
+			vertical-align: middle;
+			font-weight: bold;
+			font-size: 0.8rem;
+			letter-spacing: 0.03em;
+			padding: 0.2rem 0.5rem;
+			border-radius: 0;
+			color: var(--soft-text);
+			background: var(--soft-bg);
+			border: 1px solid var(--soft-border);
+		}
+		.endpoint-desc {
+			margin: 0.3rem 0 0;
+			color: var(--soft-text);
+		}
+		.api-key-note {
+			margin-top: 1.25rem;
+			color: var(--soft-text);
+		}
+		.api-key-note code {
+			font-family: var(--code-font);
+			background: var(--soft-bg);
+			border: 1px solid var(--soft-border);
+			border-radius: 0;
+			padding: 0.1rem 0.4rem;
+			font-size: 0.85rem;
+			color: var(--text);
 		}
 		.limits {
 			margin-top: 3rem;
@@ -185,17 +338,25 @@ templ stylesheet() {
 		.limits h2 {
 			font-size: 1.4rem;
 			margin-bottom: 1rem;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			border-bottom: 1px solid var(--soft-border);
+			padding-bottom: 0.5rem;
 		}
 		.limits h3 {
 			font-size: 1rem;
 			margin-top: 2rem;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.03em;
 		}
 		.limits-table {
 			width: 100%;
 			border-collapse: collapse;
 		}
 		.limits-table tr {
-			border-top: 1px solid #eee;
+			border-top: 1px solid var(--soft-border);
 		}
 		.limits-table th, .limits-table td {
 			text-align: left;
@@ -211,6 +372,7 @@ templ stylesheet() {
 		}
 		.limits-table td {
 			font-weight: bold;
+			color: var(--text);
 		}
 		.rate-table {
 			width: 100%;
@@ -218,7 +380,7 @@ templ stylesheet() {
 			margin-top: 0.5rem;
 		}
 		.rate-table tr {
-			border-top: 1px solid #eee;
+			border-top: 1px solid var(--soft-border);
 		}
 		.rate-table th, .rate-table td {
 			text-align: left;
@@ -237,6 +399,7 @@ templ stylesheet() {
 		}
 		.rate-table td {
 			font-weight: bold;
+			color: var(--text);
 		}
 		.limits ul {
 			margin: 0.5rem 0;
@@ -249,10 +412,17 @@ templ stylesheet() {
 		.disclaimer {
 			margin: 3rem 0;
 			box-sizing: border-box;
+			border: 1px solid var(--soft-border);
+			background: var(--bg-raised);
+			padding: 1.25rem 1.5rem;
 		}
 		.disclaimer h2 {
 			font-size: 1.4rem;
 			margin-bottom: 1rem;
+			margin-top: 0;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
 		}
 		.disclaimer p {
 			margin: 0.75rem 0;
@@ -263,122 +433,70 @@ templ stylesheet() {
 			padding-left: 1.25rem;
 			color: var(--soft-text);
 		}
-		.demo-grid {
-			display: grid;
-			grid-template-columns: repeat(2, 1fr);
-			gap: 1rem;
-			margin-top: 1rem;
-		}
-		.demo-cell {
-			border: 1px solid var(--soft-border);
-			border-radius: 0.5rem;
-			padding: 1.25rem;
-			box-sizing: border-box;
-			min-width: 0;
-			overflow: hidden;
-		}
-		.demo-cell code {
-			margin-left: 0.5rem;
-			font-size: 1.1rem;
-			color: #000;
-			font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
-			vertical-align: middle;
-		}
-		.path-param {
-			font-style: italic;
-			font-weight: bold;
-		}
-		.demo-cell p {
-			margin: 0.75rem 0;
-			color: var(--soft-text);
-		}
-		.shape {
-			width: 100%;
-			border-collapse: collapse;
-			font-size: 0.85rem;
-		}
-		.shape tr {
-			border-top: 1px solid #eee;
-		}
-		.shape th, .shape td {
-			text-align: left;
-			padding: 0.4rem 0;
-			vertical-align: top;
-		}
-		.shape th {
-			color: #999;
-			font-weight: normal;
-			width: 6rem;
-			white-space: nowrap;
-			padding-right: 0.75rem;
-		}
-		.shape td {
-			color: #333;
-		}
-		.method {
-			display: inline-block;
-			vertical-align: middle;
-			font-weight: bold;
-			font-size: 0.8rem;
-			padding: 0.2rem 0.5rem;
-			border-radius: 0.25rem;
-			color: var(--accent-text);
-			background: var(--accent-bg);
-		}
-		.lang-tabs {
+		.theme-toggle {
+			position: fixed;
+			right: 1.5rem;
+			bottom: 1.5rem;
+			z-index: 100;
 			display: flex;
-			flex-wrap: wrap;
-			gap: 0.5rem;
-			margin-top: 1rem;
-		}
-		.lang-tab {
-			font-family: inherit;
-			font-size: 0.9rem;
-			background: var(--soft-bg);
+			align-items: center;
+			justify-content: center;
+			width: 2.75rem;
+			height: 2.75rem;
+			background: var(--bg-raised);
 			color: var(--soft-text);
 			border: 1px solid var(--soft-border);
-			border-radius: 0.5rem;
-			padding: 0.4rem 0.9rem;
+			border-radius: 0;
 			cursor: pointer;
-			box-shadow: 0 3px 0 var(--soft-border);
-			transition: transform 0.05s ease, box-shadow 0.05s ease;
+			box-shadow: 0 3px 0 var(--soft-shadow);
+			transition: color 0.15s ease, transform 0.05s ease, box-shadow 0.05s ease;
 		}
-		.lang-tab:active {
+		.theme-toggle:hover {
+			color: var(--text-bright);
+		}
+		.theme-toggle:active {
 			transform: translateY(3px);
-			box-shadow: 0 0 0 var(--soft-border);
+			box-shadow: 0 0 0 var(--soft-shadow);
 		}
-		.lang-tab.active {
-			background: var(--accent-bg);
-			color: var(--accent-text);
-			border-color: var(--accent-shadow);
-			font-weight: bold;
-			box-shadow: 0 3px 0 var(--accent-shadow);
+		.theme-toggle svg {
+			display: none;
 		}
-		.lang-tab.active:active {
-			box-shadow: 0 0 0 var(--accent-shadow);
+		html:not([data-theme="light"]) .theme-toggle svg.icon-moon {
+			display: block;
 		}
-		.example {
-			margin-top: 0.75rem;
-			background: #fff;
-			color: #333;
-			border: 1px solid var(--soft-border);
-			padding: 0.75rem 1rem;
-			border-radius: 0.5rem;
-			font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
-			font-size: 0.85rem;
-			white-space: pre-wrap;
-			overflow-wrap: break-word;
-			word-break: break-word;
-			box-sizing: border-box;
-			max-width: 100%;
-		}
-		@media (max-width: 700px) {
-			.hero {
-				flex-direction: column;
-			}
-			.demo-grid {
-				grid-template-columns: 1fr;
-			}
+		html[data-theme="light"] .theme-toggle svg.icon-sun {
+			display: block;
 		}
 	</style>
+}
+
+templ themeInit() {
+	<script>
+		(function() {
+			var saved = localStorage.getItem('fredb-theme');
+			if (saved === 'light') {
+				document.documentElement.setAttribute('data-theme', 'light');
+			}
+		})();
+	</script>
+}
+
+templ themeToggle() {
+	<button type="button" class="theme-toggle" aria-label="Toggle light/dark theme" onclick="cycleTheme()">
+		<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+		<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+	</button>
+	<script>
+		function cycleTheme() {
+			var html = document.documentElement;
+			var isLight = html.getAttribute('data-theme') === 'light';
+			var next = isLight ? 'dark' : 'light';
+			if (next === 'light') {
+				html.setAttribute('data-theme', 'light');
+			} else {
+				html.removeAttribute('data-theme');
+			}
+			localStorage.setItem('fredb-theme', next);
+		}
+	</script>
 }

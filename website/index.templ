@@ -6,6 +6,7 @@ templ websiteIndex() {
 		<title>Fredb</title>
 		@favicon()
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		@themeInit()
 		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 		@stylesheet()
 	</head>
@@ -23,7 +24,7 @@ templ websiteIndex() {
 			@limitsSection()
 			@disclaimerSection()
 		</div>
-		@usageScript()
+		@themeToggle()
 	</body>
 	</html>
 }

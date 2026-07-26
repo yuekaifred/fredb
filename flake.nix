@@ -20,7 +20,8 @@
               fileset = pkgs.lib.fileset.unions [ ./server ./website ];
             };
             modRoot = "server";
-            vendorHash = "sha256-ezPZLCu6cFhc1EFwN4xKdI0PNkud1WT9i9AWnAHARI0=";
+            # note to self swap this out with pkgs.lib.fakeHash EVERYTIME
+            vendorHash = "sha256-1d4X1hlnqGZp7SB3ujfmv1iQ4U7dAyQEez0uKd2xaPw=";
             doCheck = false;
             nativeBuildInputs = [ pkgs.cmake pkgs.clang ];
             env = {
