@@ -21,7 +21,7 @@
             };
             modRoot = "server";
             # note to self swap this out with pkgs.lib.fakeHash EVERYTIME
-            vendorHash = "sha256-1d4X1hlnqGZp7SB3ujfmv1iQ4U7dAyQEez0uKd2xaPw=";
+            vendorHash = "sha256-3vR76WIKYas0x+hZFBUu0L8J5R+Xx3qEW2fQqjGZinA=";
             doCheck = false;
             nativeBuildInputs = [ pkgs.cmake pkgs.clang ];
             env = {
@@ -68,12 +68,13 @@
               export FREDB_RATE_LIMIT_CAPACITY_BYTES="400000"
               export FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC="1"
               export FREDB_RATE_LIMIT_FLAT_OVERHEAD_BYTES="500"
+              export FREDB_ADMIN_KEY="test-admin-key"
 
               FREDB_VERBOSE="''${FREDB_VERBOSE:-0}" fredb-server &
               SERVER_PID=$!
 
               for _ in $(seq 1 50); do
-                curl -s -o /dev/null -X POST http://localhost:8081/keys -d "" && break
+                curl -s -o /dev/null http://localhost:8081/ && break
                 sleep 0.1
               done
 
@@ -90,14 +91,15 @@
               export GOPATH="$HOME/go"
 
               WORKDIR="$(mktemp -d)"
-              mkdir -p "$WORKDIR/tests"
-              cp -r ${./tests}/. "$WORKDIR/tests"/
+              mkdir -p "$WORKDIR/integration-tests"
+              cp -r ${./integration-tests}/. "$WORKDIR/integration-tests"/
               chmod -R u+w "$WORKDIR"
-              cd "$WORKDIR/tests"
+              cd "$WORKDIR/integration-tests"
 
               CGO_ENABLED=0 \
                 FREDB_TEST_BASE_URL=http://localhost:8080 \
                 FREDB_TEST_ADMIN_URL=http://localhost:8081 \
+                FREDB_TEST_ADMIN_KEY=test-admin-key \
                 go test ./... -v "$@"
             '';
           };

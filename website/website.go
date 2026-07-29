@@ -12,7 +12,7 @@ import (
 var staticFS embed.FS
 
 type Provisioner interface {
-	Provision() (string, error)
+	RequestProvision() (string, error)
 }
 
 func NewHandler(p Provisioner) http.Handler {
@@ -32,8 +32,8 @@ func NewHandler(p Provisioner) http.Handler {
 		c.FileFromFS("robot.txt", http.FS(staticSub))
 	})
 
-	r.POST("/provision", func(c *gin.Context) {
-		apiKey, err := p.Provision()
+	r.POST("/ui/provision", func(c *gin.Context) {
+		apiKey, err := p.RequestProvision()
 		if err != nil {
 			c.Status(http.StatusInternalServerError)
 			websiteError(err.Error()).Render(c.Request.Context(), c.Writer)

@@ -52,9 +52,11 @@ var (
 	baseURL  string
 	adminURL string
 	apiKey   string
+	adminKey string
 )
 
 func TestMain(m *testing.M) {
+	adminKey = os.Getenv("FREDB_TEST_ADMIN_KEY")
 	baseURL = os.Getenv("FREDB_TEST_BASE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
@@ -64,9 +66,9 @@ func TestMain(m *testing.M) {
 		adminURL = "http://localhost:8081"
 	}
 
-	resp, err := http.Post(adminURL+"/keys", "application/json", nil)
+	resp, err := http.Post(baseURL+"/provision", "application/json", nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "no admin server reachable at %s: %v\n", adminURL, err)
+		fmt.Fprintf(os.Stderr, "no server reachable at %s: %v\n", baseURL, err)
 		fmt.Fprintln(os.Stderr, "run this via `./run-integration-tests.sh`, or start the server yourself and set FREDB_TEST_BASE_URL / FREDB_TEST_ADMIN_URL")
 		os.Exit(1)
 	}
@@ -139,17 +141,17 @@ func del(t *testing.T, key string) {
 	resp.Body.Close()
 }
 
-// provision creates a fresh api key via the admin port. Callers own its
+// provision creates a fresh api key via the public api. Callers own its
 // lifecycle and should deprovision it (directly, or via defer).
 func provision(t *testing.T) string {
 	t.Helper()
-	resp, err := http.Post(adminURL+"/keys", "application/json", nil)
+	resp, err := http.Post(baseURL+"/provision", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("POST /keys status = %d, want 200", resp.StatusCode)
+		t.Fatalf("POST /provision status = %d, want 200", resp.StatusCode)
 	}
 	var created struct {
 		APIKey string `json:"api_key"`
@@ -158,36 +160,21 @@ func provision(t *testing.T) string {
 		t.Fatal(err)
 	}
 	if created.APIKey == "" {
-		t.Fatal("POST /keys returned empty api_key")
+		t.Fatal("POST /provision returned empty api_key")
 	}
 	return created.APIKey
 }
 
+// deprovision tears down the tenant named by key via the public api's
+// self-service DELETE /provision (key carried in X-Api-Key).
 func deprovision(t *testing.T, key string) *http.Response {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodDelete, adminURL+"/keys/"+key, nil)
+	req, err := http.NewRequest(http.MethodDelete, baseURL+"/provision", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Set("X-Api-Key", key)
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
-}
-
-func pause(t *testing.T, key string) *http.Response {
-	t.Helper()
-	resp, err := http.Post(adminURL+"/keys/"+key+"/pause", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
-}
-
-func resume(t *testing.T, key string) *http.Response {
-	t.Helper()
-	resp, err := http.Post(adminURL+"/keys/"+key+"/resume", "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,7 +668,7 @@ func TestDeprovisionRevokesKey(t *testing.T) {
 	resp := deprovision(t, otherKey)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("DELETE /keys/{key} status = %d, want 204", resp.StatusCode)
+		t.Fatalf("DELETE /provision status = %d, want 204", resp.StatusCode)
 	}
 
 	resp2, err := doReqAs(otherKey, http.MethodGet, baseURL+"/key/"+testKey(t, "x"), nil)
@@ -704,90 +691,8 @@ func TestDeprovisionUnknownKey(t *testing.T) {
 }
 
 // B7
-func TestPauseUnknownKey(t *testing.T) {
-	resp := pause(t, "not-a-provisioned-key")
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", resp.StatusCode)
-	}
-}
-
-// B8
-func TestResumeUnknownKey(t *testing.T) {
-	resp := resume(t, "not-a-provisioned-key")
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", resp.StatusCode)
-	}
-}
-
-// B9
-func TestPausedTenantRejectsRequests(t *testing.T) {
-	otherKey := provision(t)
-	defer func() { deprovision(t, otherKey).Body.Close() }()
-
-	resp := pause(t, otherKey)
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("POST pause status = %d, want 204", resp.StatusCode)
-	}
-
-	resp2, err := doReqAs(otherKey, http.MethodGet, baseURL+"/key/"+testKey(t, "x"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp2.Body.Close()
-	if resp2.StatusCode != http.StatusServiceUnavailable {
-		t.Fatalf("status while paused = %d, want 503", resp2.StatusCode)
-	}
-
-	resume(t, otherKey).Body.Close()
-}
-
-// B10
-func TestPauseThenResumePreservesData(t *testing.T) {
-	otherKey := provision(t)
-	defer func() { deprovision(t, otherKey).Body.Close() }()
-
-	k := "durable"
-	resp, err := doReqAs(otherKey, http.MethodPut, baseURL+"/key/"+k, strings.NewReader("still-here"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-
-	pause(t, otherKey).Body.Close()
-	resume(t, otherKey).Body.Close()
-
-	// The client's cached socket connection from before the pause is stale;
-	// the very first request after resume can surface that as a single
-	// failed round trip before the client reconnects. Retry once to ride
-	// over that reconnect rather than asserting on which attempt succeeds.
-	var got *http.Response
-	for attempt := 0; attempt < 2; attempt++ {
-		got, err = doReqAs(otherKey, http.MethodGet, baseURL+"/key/"+k, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.StatusCode == http.StatusOK {
-			break
-		}
-		got.Body.Close()
-	}
-	defer got.Body.Close()
-	if got.StatusCode != http.StatusOK {
-		t.Fatalf("GET after resume status = %d, want 200", got.StatusCode)
-	}
-	body := new(bytes.Buffer)
-	body.ReadFrom(got.Body)
-	if body.String() != "still-here" {
-		t.Fatalf("GET body after resume = %q, want %q", body.String(), "still-here")
-	}
-}
-
-// B11
 func TestAdminCORSHeaders(t *testing.T) {
-	resp, err := http.Post(adminURL+"/keys", "application/json", nil)
+	resp, err := http.Get(adminURL + "/admin/storage")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -796,7 +701,7 @@ func TestAdminCORSHeaders(t *testing.T) {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
 	}
 
-	req, err := http.NewRequest(http.MethodOptions, adminURL+"/keys", nil)
+	req, err := http.NewRequest(http.MethodOptions, adminURL+"/admin/storage", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -807,5 +712,124 @@ func TestAdminCORSHeaders(t *testing.T) {
 	defer resp2.Body.Close()
 	if resp2.StatusCode != http.StatusNoContent {
 		t.Fatalf("OPTIONS status = %d, want 204", resp2.StatusCode)
+	}
+}
+
+// setRateLimit posts a rate-limit override for key using the shared admin key.
+func setRateLimit(t *testing.T, key string, body string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, adminURL+"/admin/"+key+"/rate-limit", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Key", adminKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+// C1: the rate-limit override endpoint requires the admin key.
+func TestSetRateLimitRequiresAdminKey(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+
+	req, err := http.NewRequest(http.MethodPost, adminURL+"/admin/"+key+"/rate-limit", strings.NewReader(`{"capacity_bytes":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status without admin key = %d, want 401", resp.StatusCode)
+	}
+}
+
+// C4: a tightened custom rate limit takes effect immediately for a
+// materialized tenant -- the first delete exhausts the tiny custom bucket,
+// the second gets 429.
+func TestSetRateLimitAppliesImmediately(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+
+	resp := mustReqAs(t, key, http.MethodPut, baseURL+"/key/warmup", strings.NewReader("v"))
+	resp.Body.Close()
+
+	setResp := setRateLimit(t, key, `{"capacity_bytes":1,"refill_bytes_per_sec":0,"flat_overhead_bytes":1,"write_byte_weight":1,"read_byte_weight":1}`)
+	setResp.Body.Close()
+	if setResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("POST rate-limit status = %d, want 204", setResp.StatusCode)
+	}
+
+	resp1, err := doReqAs(key, http.MethodDelete, baseURL+"/key/nope1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp1.Body.Close()
+	if resp1.StatusCode != http.StatusNoContent {
+		t.Fatalf("first delete after override: status = %d, want 204", resp1.StatusCode)
+	}
+
+	resp2, err := doReqAs(key, http.MethodDelete, baseURL+"/key/nope2", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("second delete after override: status = %d, want 429 (tightened capacity=1 exhausted)", resp2.StatusCode)
+	}
+}
+
+// C5: /storage requires the admin key.
+func TestStorageStatsRequiresAdminKey(t *testing.T) {
+	resp, err := http.Get(adminURL + "/admin/storage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status without admin key = %d, want 401", resp.StatusCode)
+	}
+}
+
+// C6: /storage with the admin key reports sane, non-degenerate numbers.
+func TestStorageStatsWithAdminKey(t *testing.T) {
+	key := provision(t)
+	defer deprovision(t, key)
+	resp := mustReqAs(t, key, http.MethodPut, baseURL+"/key/storage-probe", strings.NewReader("some bytes to make usage nonzero"))
+	resp.Body.Close()
+
+	req, err := http.NewRequest(http.MethodGet, adminURL+"/admin/storage", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Admin-Key", adminKey)
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp2.StatusCode)
+	}
+	var stats struct {
+		TenantsUsedBytes  uint64 `json:"tenants_used_bytes"`
+		MachineTotalBytes uint64 `json:"machine_total_bytes"`
+		MachineFreeBytes  uint64 `json:"machine_free_bytes"`
+	}
+	if err := json.NewDecoder(resp2.Body).Decode(&stats); err != nil {
+		t.Fatal(err)
+	}
+	if stats.TenantsUsedBytes == 0 {
+		t.Fatal("tenants_used_bytes should be > 0 after a put")
+	}
+	if stats.MachineTotalBytes == 0 || stats.MachineFreeBytes > stats.MachineTotalBytes {
+		t.Fatalf("implausible machine storage numbers: %+v", stats)
 	}
 }

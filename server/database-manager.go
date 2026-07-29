@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 )
 
 var errAlreadyProvisioned = errors.New("already provisioned")
@@ -23,10 +25,11 @@ func errInternal(err error) *StoreError {
 	return &StoreError{Status: http.StatusInternalServerError, Message: err.Error()}
 }
 
+const LastActiveMarker = ".last-active"
+
 type DatabaseManager struct {
 	mu              sync.RWMutex
-	dbs             map[string]*Database
-	buckets         map[string]*TokenBucket
+	tenants         map[string]*Database
 	dataRoot        string
 	maxValueBytes   int
 	maxStorageBytes uint64
@@ -35,8 +38,7 @@ type DatabaseManager struct {
 
 func NewDatabaseManager(dataRoot string, maxValueBytes int, maxStorageBytes uint64, rateLimit RateLimitConfig) *DatabaseManager {
 	return &DatabaseManager{
-		dbs:             make(map[string]*Database),
-		buckets:         make(map[string]*TokenBucket),
+		tenants:         make(map[string]*Database),
 		dataRoot:        dataRoot,
 		maxValueBytes:   maxValueBytes,
 		maxStorageBytes: maxStorageBytes,
@@ -44,76 +46,32 @@ func NewDatabaseManager(dataRoot string, maxValueBytes int, maxStorageBytes uint
 	}
 }
 
-func withDB[T any](man *DatabaseManager, apiKey string, cost float64, fn func(*Database) (T, *StoreError)) (T, *StoreError) {
-	man.mu.RLock()
-	db, ok := man.dbs[apiKey]
-	bucket := man.buckets[apiKey]
-	man.mu.RUnlock()
+func lastPersistedActivity(dataDirPath string) (time.Time, error) {
+	file, err := os.Stat(filepath.Join(dataDirPath, LastActiveMarker))
+	if err != nil {
+		return time.Time{}, err
+	}
+	return file.ModTime(), nil
+}
 
-	var zero T
+func (man *DatabaseManager) Lookup(apiKey string) (*Database, *StoreError) {
+	man.mu.RLock()
+	defer man.mu.RUnlock()
+	db, ok := man.tenants[apiKey]
 	if !ok {
-		return zero, ErrUnknownAPIKey
+		return nil, ErrUnknownAPIKey
 	}
-	if bucket != nil && !bucket.Consume(cost) {
-		return zero, ErrRateLimited
-	}
-	return fn(db)
+	return db, nil
 }
 
-func (man *DatabaseManager) chargeBytes(apiKey string, n float64) {
+func (man *DatabaseManager) LookupProvisioned(apiKey string) (*Database, *StoreError) {
 	man.mu.RLock()
-	bucket := man.buckets[apiKey]
-	man.mu.RUnlock()
-	if bucket != nil {
-		bucket.Charge(n)
+	defer man.mu.RUnlock()
+	db, ok := man.tenants[apiKey]
+	if !ok {
+		return nil, errNotProvisioned(apiKey)
 	}
-}
-
-type getResult struct {
-	val   string
-	found bool
-}
-
-func (man *DatabaseManager) Get(apiKey, key string) (string, bool, *StoreError) {
-	r, err := withDB(man, apiKey, man.rateLimit.FlatCost(), func(db *Database) (getResult, *StoreError) {
-		val, found, err := db.Get(key)
-		return getResult{val, found}, err
-	})
-	if err == nil && r.found {
-		man.chargeBytes(apiKey, man.rateLimit.ReadCost(len(r.val)))
-	}
-	return r.val, r.found, err
-}
-
-func (man *DatabaseManager) Put(apiKey, key, value string) *StoreError {
-	if len(value) > man.maxValueBytes {
-		return ErrTooLarge
-	}
-	_, err := withDB(man, apiKey, man.rateLimit.PutCost(len(value)), func(db *Database) (struct{}, *StoreError) {
-		return struct{}{}, db.Put(key, value)
-	})
-	return err
-}
-
-func (man *DatabaseManager) Delete(apiKey, key string) *StoreError {
-	_, err := withDB(man, apiKey, man.rateLimit.FlatCost(), func(db *Database) (struct{}, *StoreError) {
-		return struct{}{}, db.Delete(key)
-	})
-	return err
-}
-
-func (man *DatabaseManager) Range(apiKey, start, end string) ([]KV, *StoreError) {
-	pairs, err := withDB(man, apiKey, man.rateLimit.FlatCost(), func(db *Database) ([]KV, *StoreError) {
-		return db.Range(start, end)
-	})
-	if err == nil {
-		total := 0
-		for _, kv := range pairs {
-			total += len(kv.Key) + len(kv.Value)
-		}
-		man.chargeBytes(apiKey, man.rateLimit.ReadCost(total))
-	}
-	return pairs, err
+	return db, nil
 }
 
 func (man *DatabaseManager) registryPath() string {
@@ -187,14 +145,21 @@ func (man *DatabaseManager) LoadAll() error {
 	}
 	for _, apiKey := range keys {
 		dataDirPath := filepath.Join(man.dataRoot, apiKey)
-		db, err := NewDatabase(apiKey, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
-		if err != nil {
+		db := NewDatabase(apiKey, dataDirPath, man.maxValueBytes, man.maxStorageBytes, man.rateLimit)
+		if _, err := os.Stat(dataDirPath); os.IsNotExist(err) {
+			man.tenants[apiKey] = db
+			continue
+		}
+		// TODO persist
+		if err := db.InitializeEngine(); err != nil {
 			// skip bad keys for now, think of better approach later (never)
 			log.Printf("LoadAll: skipping %s, failed to recover: %v", apiKey, err)
 			continue
 		}
-		man.dbs[apiKey] = db
-		man.buckets[apiKey] = NewTokenBucket(man.rateLimit)
+		if last, err := lastPersistedActivity(dataDirPath); err == nil {
+			db.lastActive.Store(last.Unix())
+		}
+		man.tenants[apiKey] = db
 	}
 	return nil
 }
@@ -208,7 +173,7 @@ func (man *DatabaseManager) generateAPIKey() (string, error) {
 		apiKey := hex.EncodeToString(b)
 
 		man.mu.RLock()
-		_, exists := man.dbs[apiKey]
+		_, exists := man.tenants[apiKey]
 		man.mu.RUnlock()
 		if exists {
 			continue
@@ -218,7 +183,7 @@ func (man *DatabaseManager) generateAPIKey() (string, error) {
 	return "", fmt.Errorf("failed to generate unique api key after retries")
 }
 
-func (man *DatabaseManager) Provision() (string, error) {
+func (man *DatabaseManager) RequestProvision() (string, error) {
 	apiKey, err := man.generateAPIKey()
 	if err != nil {
 		return "", err
@@ -227,7 +192,7 @@ func (man *DatabaseManager) Provision() (string, error) {
 	man.mu.Lock()
 	defer man.mu.Unlock()
 
-	if _, exists := man.dbs[apiKey]; exists {
+	if _, exists := man.tenants[apiKey]; exists {
 		return "", fmt.Errorf("%w: %s", errAlreadyProvisioned, apiKey)
 	}
 	if err := man.ensureRoots(); err != nil {
@@ -236,16 +201,8 @@ func (man *DatabaseManager) Provision() (string, error) {
 	if err := man.appendToRegistry(apiKey); err != nil {
 		return "", err
 	}
-
 	dataDirPath := filepath.Join(man.dataRoot, apiKey)
-
-	db, err := NewDatabase(apiKey, dataDirPath, man.maxValueBytes, man.maxStorageBytes)
-	if err != nil {
-		man.removeFromRegistry(apiKey)
-		return "", err
-	}
-	man.dbs[apiKey] = db
-	man.buckets[apiKey] = NewTokenBucket(man.rateLimit)
+	man.tenants[apiKey] = NewDatabase(apiKey, dataDirPath, man.maxValueBytes, man.maxStorageBytes, man.rateLimit)
 	return apiKey, nil
 }
 
@@ -253,45 +210,94 @@ func (man *DatabaseManager) Deprovision(apiKey string) *StoreError {
 	man.mu.Lock()
 	defer man.mu.Unlock()
 
-	db, ok := man.dbs[apiKey]
+	db, ok := man.tenants[apiKey]
 	if !ok {
 		return errNotProvisioned(apiKey)
 	}
-	if err := db.DestroyCompletely(); err != nil {
+	if err := db.Destroy(); err != nil {
 		return errInternal(err)
 	}
-	delete(man.dbs, apiKey)
-	delete(man.buckets, apiKey)
+	delete(man.tenants, apiKey)
 	if err := man.removeFromRegistry(apiKey); err != nil {
 		return errInternal(err)
 	}
 	return nil
 }
 
-func (man *DatabaseManager) Pause(apiKey string) *StoreError {
-	man.mu.Lock()
-	defer man.mu.Unlock()
+func (man *DatabaseManager) reapInactive(maxIdle time.Duration) []string {
+	man.mu.RLock()
+	dbs := make(map[string]*Database, len(man.tenants))
+	for key, db := range man.tenants {
+		if !db.IsPending() {
+			dbs[key] = db
+		}
+	}
+	man.mu.RUnlock()
 
-	db, ok := man.dbs[apiKey]
-	if !ok {
-		return errNotProvisioned(apiKey)
+	now := time.Now()
+	var reaped []string
+	for key, db := range dbs {
+		last := db.LastActive()
+		if err := db.PersistActivity(); err != nil {
+			log.Printf("reapInactive: failed to persist activity marker for %s: %v", key, err)
+		}
+		if now.Sub(last) > maxIdle {
+			if serr := man.Deprovision(key); serr == nil {
+				reaped = append(reaped, key)
+			} else {
+				log.Printf("reapInactive: failed to deprovision %s: %v", key, serr)
+			}
+		}
 	}
-	if err := db.Pause(); err != nil {
-		return errInternal(err)
-	}
-	return nil
+	return reaped
 }
 
-func (man *DatabaseManager) Resume(apiKey string) *StoreError {
-	man.mu.Lock()
-	defer man.mu.Unlock()
+func (man *DatabaseManager) StartReaper(interval, maxIdle time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			if reaped := man.reapInactive(maxIdle); len(reaped) > 0 {
+				log.Printf("reaper: deprovisioned %d inactive tenant(s) idle > %s: %v", len(reaped), maxIdle, reaped)
+			}
+		}
+	}()
+}
 
-	db, ok := man.dbs[apiKey]
-	if !ok {
-		return errNotProvisioned(apiKey)
+type StorageStatsResult struct {
+	TenantsUsedBytes  uint64
+	MachineTotalBytes uint64
+	MachineFreeBytes  uint64
+}
+
+func (man *DatabaseManager) StorageStats() (StorageStatsResult, error) {
+	man.mu.RLock()
+	dbs := make([]*Database, 0, len(man.tenants))
+	for _, db := range man.tenants {
+		dbs = append(dbs, db)
 	}
-	if err := db.Resume(); err != nil {
-		return errInternal(err)
+	man.mu.RUnlock()
+
+	var used uint64
+	for _, db := range dbs {
+		n, ok, err := db.EngineSize()
+		if err != nil {
+			return StorageStatsResult{}, err
+		}
+		if ok {
+			used += n
+		}
 	}
-	return nil
+
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(man.dataRoot, &stat); err != nil {
+		return StorageStatsResult{}, err
+	}
+	bsize := uint64(stat.Bsize)
+
+	return StorageStatsResult{
+		TenantsUsedBytes:  used,
+		MachineTotalBytes: stat.Blocks * bsize,
+		MachineFreeBytes:  stat.Bavail * bsize,
+	}, nil
 }

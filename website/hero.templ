@@ -3,7 +3,7 @@ package website
 templ heroSection() {
 	<div class="topbar">
 		<div class="topbar-inner">
-			<button class="primary-btn" hx-post="/provision" hx-target="#result" hx-swap="innerHTML">Create a database</button>
+			<button class="primary-btn" hx-post="/ui/provision" hx-target="#result" hx-swap="innerHTML">Create a database</button>
 			<div id="result" class="key-field">
 				<div class="key-display disabled" aria-disabled="true">
 					<span class="key-prefix" aria-hidden="true">API_KEY:</span><span class="key-value key-mask">************************************************</span>

@@ -9,6 +9,8 @@ export FREDB_MAX_STORAGE_BYTES="262144" # 256KB, small so storage-limit tests do
 export FREDB_RATE_LIMIT_CAPACITY_BYTES="400000"
 export FREDB_RATE_LIMIT_REFILL_BYTES_PER_SEC="1"    # near-frozen, tests run in well under a second
 export FREDB_RATE_LIMIT_FLAT_OVERHEAD_BYTES="500"
+export FREDB_ADMIN_KEY="test-admin-key"
+export FREDB_REAP_INTERVAL_SECONDS="1"
 
 echo "building fredb engine..."
 cmake -S "$ROOT/engine" -B "$ROOT/engine/build" -DCMAKE_BUILD_TYPE=Release -Wno-dev >/dev/null
@@ -30,14 +32,15 @@ trap cleanup EXIT
 "$ROOT/server/fredb-server" &
 SERVER_PID=$!
 
-echo "waiting for admin port..."
+echo "waiting for server..."
 for _ in $(seq 1 50); do
-	curl -s -o /dev/null -X POST "http://localhost:8091/keys" -d '' && break
+	curl -s -o /dev/null "http://localhost:8091/" && break
 	sleep 0.1
 done
 
 export FREDB_TEST_BASE_URL="http://localhost:8090"
 export FREDB_TEST_ADMIN_URL="http://localhost:8091"
+export FREDB_TEST_ADMIN_KEY="test-admin-key"
 
 export HOME="${HOME:-/tmp}"
-(cd "$ROOT/tests" && CGO_ENABLED=0 go test ./... -v "$@")
+(cd "$ROOT/integration-tests" && CGO_ENABLED=0 go test ./... -v "$@")
