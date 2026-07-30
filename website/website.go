@@ -42,5 +42,9 @@ func NewHandler(p Provisioner) http.Handler {
 		websiteKey(apiKey).Render(c.Request.Context(), c.Writer)
 	})
 
+	r.GET("/docs", func(c *gin.Context) {
+		docsPage().Render(c.Request.Context(), c.Writer)
+	})
+
 	return r
 }

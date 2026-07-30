@@ -29,19 +29,9 @@ templ stylesheet() {
 			--disabled-text: #4a4a4a;
 			--topbar-height: 4rem;
 			--control-height: 3.5rem;
+			--sidenav-width: 9rem;
+			--sidenav-gap: 2rem;
 			--code-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
-		}
-		html[data-theme="light"] {
-			--accent-shadow: #00a352;
-			--bg: #d4d4d4;
-			--bg-raised: #c8c8c8;
-			--soft-bg: #c0c0c0;
-			--soft-text: #5c5c5c;
-			--soft-border: #a0a0a0;
-			--soft-shadow: #9a9a9a;
-			--text: #444444;
-			--text-bright: #161616;
-			--disabled-text: #9a9a9a;
 		}
 		* {
 			font-family: "Share Tech Mono", ui-monospace, "SF Mono", Consolas, monospace;
@@ -58,8 +48,11 @@ templ stylesheet() {
 				var(--bg);
 			color: var(--text);
 		}
-		.page {
-			max-width: 1000px;
+		.shell {
+			display: flex;
+			align-items: flex-start;
+			gap: var(--sidenav-gap);
+			max-width: calc(1000px + var(--sidenav-gap) + var(--sidenav-width));
 			margin: 0 auto;
 			padding: 0 var(--page-margin-x);
 			box-sizing: border-box;
@@ -79,10 +72,14 @@ templ stylesheet() {
 			display: flex;
 			align-items: center;
 			gap: 1.5rem;
-			max-width: 1000px;
+			max-width: calc(1000px + var(--sidenav-gap) + var(--sidenav-width));
 			margin: 0 auto;
 			padding: 0.75rem var(--page-margin-x);
 			box-sizing: border-box;
+		}
+		.topbar-inner::before {
+			content: "";
+			flex: 0 0 calc(var(--sidenav-width) + var(--sidenav-gap));
 		}
 		.topbar .primary-btn {
 			width: auto;
@@ -102,33 +99,77 @@ templ stylesheet() {
 			font-size: 0.9rem;
 			padding: 0 0.75rem;
 		}
-		.header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			margin-top: var(--page-margin-top);
-			padding-bottom: 1rem;
-			border-bottom: 1px solid var(--soft-border);
+		.page {
+			flex: 1 1 auto;
+			min-width: 0;
+			max-width: 1000px;
+			padding-top: var(--page-margin-top);
 			box-sizing: border-box;
 		}
-		.header nav a {
-			margin-left: 1.5rem;
+		.side-nav {
+			position: sticky;
+			top: calc(var(--topbar-height) + 2rem);
+			flex: 0 0 var(--sidenav-width);
+			display: flex;
+			flex-direction: column;
+			gap: 0.25rem;
+			margin-top: var(--page-margin-top);
+			box-sizing: border-box;
+		}
+		.side-nav a {
 			color: var(--soft-text);
 			text-decoration: none;
 			font-weight: bold;
 			font-size: 0.9rem;
-			padding-bottom: 0.15rem;
-			box-shadow: 0 2px 0 var(--soft-shadow);
-			transition: color 0.1s ease, box-shadow 0.1s ease;
+			padding: 0.5rem 0 0.5rem 0.75rem;
+			border-left: 2px solid transparent;
+			transition: color 0.1s ease, border-color 0.1s ease;
 		}
-		.header nav a:hover {
+		.side-nav a:hover,
+		.side-nav a.active {
 			color: var(--text-bright);
-			box-shadow: 0 2px 0 var(--accent-bg);
+			border-left-color: var(--accent-bg);
 		}
-		.header span {
-			font-size: 1.5rem;
-			font-weight: bold;
-			color: var(--text-bright);
+		@media (max-width: 1200px) {
+			.shell {
+				flex-direction: column;
+			}
+			.page {
+				max-width: none;
+				padding-top: 0;
+			}
+			.topbar-inner {
+				max-width: 1000px;
+			}
+			.topbar-inner::before {
+				display: none;
+			}
+			.side-nav {
+				flex: 0 0 auto;
+				position: static;
+				flex-direction: row;
+				align-items: center;
+				width: 100%;
+				margin-top: var(--page-margin-top);
+				padding-bottom: 1rem;
+				border-bottom: 1px solid var(--soft-border);
+			}
+			.side-nav a {
+				margin-left: 1.5rem;
+				padding: 0 0 0.15rem;
+				border-left: none;
+			}
+			.side-nav a:first-child {
+				margin-left: 0;
+			}
+			.side-nav a:hover,
+			.side-nav a.active {
+				border-left: none;
+				box-shadow: 0 2px 0 var(--accent-bg);
+			}
+			.key-prefix {
+				display: none;
+			}
 		}
 		.hero {
 			margin-top: 3rem;
@@ -284,6 +325,21 @@ templ stylesheet() {
 			background: var(--bg-raised);
 			padding: 0.85rem 1rem;
 		}
+		.usage-list {
+			margin-top: 1rem;
+		}
+		.usage-row {
+			padding: 0.85rem 0;
+			border-top: 1px solid var(--soft-border);
+		}
+		.usage-row:first-child {
+			border-top: none;
+			padding-top: 0;
+		}
+		.endpoint-heading {
+			margin: 0 0 0.5rem;
+			color: var(--text-bright);
+		}
 		.endpoint-row-head {
 			display: flex;
 			align-items: center;
@@ -317,6 +373,42 @@ templ stylesheet() {
 		.endpoint-desc {
 			margin: 0.3rem 0 0;
 			color: var(--soft-text);
+		}
+		.lang-selector {
+			display: flex;
+			gap: 1.5rem;
+			margin-top: 1rem;
+		}
+		.lang-btn {
+			background: none;
+			border: none;
+			font-family: inherit;
+			font-weight: bold;
+			font-size: 0.9rem;
+			color: var(--soft-text);
+			cursor: pointer;
+			padding: 0 0 0.15rem;
+			box-shadow: none;
+			transition: color 0.1s ease, box-shadow 0.1s ease;
+		}
+		.lang-btn:hover,
+		.lang-btn.active {
+			color: var(--text-bright);
+			box-shadow: 0 2px 0 var(--accent-bg);
+		}
+		.section-divider {
+			border: none;
+			border-top: 1px solid var(--soft-border);
+			margin: 1rem 0;
+		}
+		.code-block[data-lang] {
+			display: none;
+		}
+		body[data-lang="curl"] .code-block[data-lang="curl"],
+		body[data-lang="js"] .code-block[data-lang="js"],
+		body[data-lang="go"] .code-block[data-lang="go"],
+		body[data-lang="python"] .code-block[data-lang="python"] {
+			display: block;
 		}
 		.api-key-note {
 			margin-top: 1.25rem;
@@ -433,70 +525,93 @@ templ stylesheet() {
 			padding-left: 1.25rem;
 			color: var(--soft-text);
 		}
-		.theme-toggle {
-			position: fixed;
-			right: 1.5rem;
-			bottom: 1.5rem;
-			z-index: 100;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 2.75rem;
-			height: 2.75rem;
-			background: var(--bg-raised);
-			color: var(--soft-text);
-			border: 1px solid var(--soft-border);
-			border-radius: 0;
-			cursor: pointer;
-			box-shadow: 0 3px 0 var(--soft-shadow);
-			transition: color 0.15s ease, transform 0.05s ease, box-shadow 0.05s ease;
+		.docs-section, .status-section {
+			margin-top: 3rem;
+			box-sizing: border-box;
 		}
-		.theme-toggle:hover {
+		.docs-section h2, .status-section h2 {
+			font-size: 1.4rem;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			border-bottom: 1px solid var(--soft-border);
+			padding-bottom: 0.5rem;
+		}
+		.docs-section h3 {
+			font-size: 1rem;
+			margin-top: 2rem;
+			color: var(--text-bright);
+			text-transform: uppercase;
+			letter-spacing: 0.03em;
+		}
+		.docs-section p, .status-sub {
+			color: var(--soft-text);
+		}
+		.code-block {
+			margin: 0.75rem 0 0;
+			padding: 0.85rem 1rem;
+			background: var(--soft-bg);
+			border: 1px solid var(--soft-border);
+		}
+		.code-block code {
+			font-family: var(--code-font);
+			font-size: 0.85rem;
+			color: var(--text);
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+		.stat-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+			gap: 1rem;
+			margin-top: 1rem;
+		}
+		.stat-tile {
+			border: 1px solid var(--soft-border);
+			background: var(--bg-raised);
+			padding: 0.85rem 1rem;
+		}
+		.stat-value {
+			font-size: 1.5rem;
+			font-weight: bold;
 			color: var(--text-bright);
 		}
-		.theme-toggle:active {
-			transform: translateY(3px);
-			box-shadow: 0 0 0 var(--soft-shadow);
+		.stat-label {
+			margin-top: 0.25rem;
+			font-size: 0.8rem;
+			color: var(--soft-text);
+			text-transform: uppercase;
+			letter-spacing: 0.03em;
 		}
-		.theme-toggle svg {
-			display: none;
+		.feed-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 0.5rem;
+			font-size: 0.9rem;
 		}
-		html:not([data-theme="light"]) .theme-toggle svg.icon-moon {
-			display: block;
+		.feed-table tr {
+			border-top: 1px solid var(--soft-border);
 		}
-		html[data-theme="light"] .theme-toggle svg.icon-sun {
-			display: block;
+		.feed-table th, .feed-table td {
+			text-align: left;
+			padding: 0.5rem 0.5rem 0.5rem 0;
+			vertical-align: top;
+		}
+		.feed-table th {
+			color: var(--soft-text);
+			font-weight: normal;
+		}
+		.status-ok {
+			color: var(--text);
+		}
+		.status-warn, .status-err {
+			color: var(--text-bright);
+			font-weight: bold;
+		}
+		.status-empty {
+			margin-top: 1rem;
+			color: var(--soft-text);
 		}
 	</style>
 }
 
-templ themeInit() {
-	<script>
-		(function() {
-			var saved = localStorage.getItem('fredb-theme');
-			if (saved === 'light') {
-				document.documentElement.setAttribute('data-theme', 'light');
-			}
-		})();
-	</script>
-}
-
-templ themeToggle() {
-	<button type="button" class="theme-toggle" aria-label="Toggle light/dark theme" onclick="cycleTheme()">
-		<svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-		<svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-	</button>
-	<script>
-		function cycleTheme() {
-			var html = document.documentElement;
-			var isLight = html.getAttribute('data-theme') === 'light';
-			var next = isLight ? 'dark' : 'light';
-			if (next === 'light') {
-				html.setAttribute('data-theme', 'light');
-			} else {
-				html.removeAttribute('data-theme');
-			}
-			localStorage.setItem('fredb-theme', next);
-		}
-	</script>
-}

@@ -35,3 +35,5 @@ make sure your human and other bots understand limits:
 write: 10MB burst, 5MB/s sustained.
 read/range: 80MB burst, 40MB/s sustained.
 every request cost extra 1KB.
+
+databases deleted after 67 days of inactivity.

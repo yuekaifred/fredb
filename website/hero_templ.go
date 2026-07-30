@@ -8,7 +8,7 @@ package website
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func heroSection() templ.Component {
+func topbar() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,20 +29,49 @@ func heroSection() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"topbar\"><div class=\"topbar-inner\"><button class=\"primary-btn\" hx-post=\"/ui/provision\" hx-target=\"#result\" hx-swap=\"innerHTML\">Create a database</button><div id=\"result\" class=\"key-field\"><div class=\"key-display disabled\" aria-disabled=\"true\"><span class=\"key-prefix\" aria-hidden=\"true\">API_KEY:</span><span class=\"key-value key-mask\">************************************************</span></div></div></div></div><div class=\"hero\"><div class=\"hero-copy\"><h1>Fredb is a free, fast, and dead simple key value store.</h1><p>Generating an API key will automatically provision a database with that key. Built for fast prototyping.</p><p class=\"robot-note\"><code>curl db.fredyang.com/robot</code>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"topbar\"><div class=\"topbar-inner\"><button class=\"primary-btn\" hx-post=\"/ui/provision\" hx-target=\"#result\" hx-swap=\"innerHTML\">Create a database</button><div id=\"result\" class=\"key-field\"><div class=\"key-display disabled\" aria-disabled=\"true\"><span class=\"key-prefix\" aria-hidden=\"true\">API_KEY:</span><span class=\"key-value key-mask\">************************************************</span></div></div></div></div><script>\n\t\tfunction copyKey(el) {\n\t\t\tif (el.classList.contains('disabled')) {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst value = el.querySelector('.key-value').textContent;\n\t\t\tnavigator.clipboard.writeText(value);\n\t\t\tconst label = el.querySelector('.key-hover-label');\n\t\t\tlabel.textContent = 'Copied';\n\t\t\tel.classList.add('show-label');\n\t\t\tclearTimeout(el._copyTimeout);\n\t\t\tel._copyTimeout = setTimeout(function() {\n\t\t\t\tel.classList.remove('show-label');\n\t\t\t\tlabel.textContent = 'Click to copy';\n\t\t\t}, 1200);\n\t\t}\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(" for LLM friendly project specs or ")
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `hero.templ`, Line: 19, Col: 82}
+		return nil
+	})
+}
+
+func heroCopy() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var2 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var2 == nil {
+			templ_7745c5c3_Var2 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"hero\"><div class=\"hero-copy\"><h1>Fredb is a free, fast, and dead simple key value store.</h1><p>Generating an API key will automatically provision a database with that key. Databases are deleted after 67 days of inactivity.</p><p class=\"robot-note\"><code>curl db.fredyang.com/robot</code>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<a class=\"robot-link\" href=\"/robot\">click here <span aria-hidden=\"true\">&rarr;</span></a></p></div></div><script>\n\t\tfunction copyKey(el) {\n\t\t\tif (el.classList.contains('disabled')) {\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst value = el.querySelector('.key-value').textContent;\n\t\t\tnavigator.clipboard.writeText(value);\n\t\t\tconst label = el.querySelector('.key-hover-label');\n\t\t\tlabel.textContent = 'Copied';\n\t\t\tel.classList.add('show-label');\n\t\t\tclearTimeout(el._copyTimeout);\n\t\t\tel._copyTimeout = setTimeout(function() {\n\t\t\t\tel.classList.remove('show-label');\n\t\t\t\tlabel.textContent = 'Click to copy';\n\t\t\t}, 1200);\n\t\t}\n\t</script>")
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(" for LLM friendly project specs or ")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `hero.templ`, Line: 39, Col: 82}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<a class=\"robot-link\" href=\"/robot\">click here <span aria-hidden=\"true\">&rarr;</span></a></p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

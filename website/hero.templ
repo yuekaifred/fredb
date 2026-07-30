@@ -1,6 +1,6 @@
 package website
 
-templ heroSection() {
+templ topbar() {
 	<div class="topbar">
 		<div class="topbar-inner">
 			<button class="primary-btn" hx-post="/ui/provision" hx-target="#result" hx-swap="innerHTML">Create a database</button>
@@ -9,15 +9,6 @@ templ heroSection() {
 					<span class="key-prefix" aria-hidden="true">API_KEY:</span><span class="key-value key-mask">************************************************</span>
 				</div>
 			</div>
-		</div>
-	</div>
-	<div class="hero">
-		<div class="hero-copy">
-			<h1>Fredb is a free, fast, and dead simple key value store.</h1>
-			<p>Generating an API key will automatically provision a database with that key. Built for fast prototyping.</p>
-			<p class="robot-note">
-				<code>curl db.fredyang.com/robot</code>{ " for LLM friendly project specs or " }<a class="robot-link" href="/robot">click here <span aria-hidden="true">&rarr;</span></a>
-			</p>
 		</div>
 	</div>
 	<script>
@@ -37,4 +28,16 @@ templ heroSection() {
 			}, 1200);
 		}
 	</script>
+}
+
+templ heroCopy() {
+	<div class="hero">
+		<div class="hero-copy">
+			<h1>Fredb is a free, fast, and dead simple key value store.</h1>
+			<p>Generating an API key will automatically provision a database with that key. Databases are deleted after 67 days of inactivity.</p>
+			<p class="robot-note">
+				<code>curl db.fredyang.com/robot</code>{ " for LLM friendly project specs or " }<a class="robot-link" href="/robot">click here <span aria-hidden="true">&rarr;</span></a>
+			</p>
+		</div>
+	</div>
 }

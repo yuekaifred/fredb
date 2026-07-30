@@ -3,17 +3,18 @@ package website
 templ usageSection() {
 	<section class="demo">
 		<h2>Usage</h2>
-		<div class="endpoint-list">
+		<div class="usage-list">
 			for _, e := range endpoints {
-				<div class="endpoint-row">
+				<div class="usage-row">
+					<p class="endpoint-heading">{ e.Desc }</p>
 					<div class="endpoint-row-head">
 						<span class={ e.MethodClass() }>{ e.Method }</span>
 						<code>{ apiHost }@templ.Raw(e.PathHTML())</code>
 					</div>
-					<p class="endpoint-desc">{ e.Desc }</p>
 				</div>
 			}
 		</div>
 		<p class="api-key-note">Add your API key to the <code>X-Api-Key</code> header on every request.</p>
+		<p class="api-key-note"><a class="robot-link" href="/docs">Check the docs <span aria-hidden="true">&rarr;</span></a></p>
 	</section>
 }

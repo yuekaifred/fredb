@@ -1,0 +1,25 @@
+package website
+
+templ pageHead(title string) {
+	<head>
+		<title>{ title }</title>
+		@favicon()
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+		@stylesheet()
+	</head>
+}
+
+templ siteNav(active string) {
+	<nav class="side-nav">
+		<a href="/" class={ navClass(active, "home") }>Home</a>
+		<a href="/docs" class={ navClass(active, "docs") }>Docs</a>
+	</nav>
+}
+
+func navClass(active, name string) string {
+	if active == name {
+		return "active"
+	}
+	return ""
+}

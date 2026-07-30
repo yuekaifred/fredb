@@ -1,0 +1,62 @@
+package website
+
+templ docsPage() {
+	<html>
+	@pageHead("Fredb — Docs")
+	<body data-lang="curl">
+		@topbar()
+		<div class="shell">
+			@siteNav("docs")
+			<div class="page">
+			<section class="docs-section">
+				<h2>Docs</h2>
+				<p>Fredb is meant to be the easiest option if you just want a persistent KV store for your project. As you can hopefully see by now, there is no sign up or anything needed from you. I want you to create a database as quickly as possible so I can have experience working on high-load systems!</p>
+				<h3>Authentication</h3>
+				<p class="api-key-note">Every request needs an <code>X-Api-Key</code> header. Grab one above.</p>
+				<h3>Endpoints</h3>
+				<hr class="section-divider"/>
+				<div class="lang-selector">
+					<button type="button" class="lang-btn active" data-lang-btn="curl" onclick="setExampleLang('curl', this)">curl</button>
+					<button type="button" class="lang-btn" data-lang-btn="js" onclick="setExampleLang('js', this)">JavaScript</button>
+					<button type="button" class="lang-btn" data-lang-btn="go" onclick="setExampleLang('go', this)">Go</button>
+					<button type="button" class="lang-btn" data-lang-btn="python" onclick="setExampleLang('python', this)">Python</button>
+				</div>
+				<div class="usage-list">
+					for _, e := range endpoints {
+						<div class="usage-row" id={ e.ID }>
+							<div class="endpoint-row-head">
+								<span class={ e.MethodClass() }>{ e.Method }</span>
+								<code>{ apiHost }@templ.Raw(e.PathHTML())</code>
+							</div>
+							<p class="endpoint-desc">{ e.Desc }</p>
+							<table class="rate-table">
+								<tr><th>Field</th><th>Value</th></tr>
+								for _, r := range e.Rows {
+									<tr><td>{ r.Kind }</td><td>{ r.Value }</td></tr>
+								}
+							</table>
+							<pre class="code-block" data-lang="curl"><code>{ e.Curl }</code></pre>
+							<pre class="code-block" data-lang="js"><code>{ e.JS }</code></pre>
+							<pre class="code-block" data-lang="go"><code>{ e.Go }</code></pre>
+							<pre class="code-block" data-lang="python"><code>{ e.Python }</code></pre>
+						</div>
+					}
+				</div>
+				<script>
+					function setExampleLang(lang, btn) {
+						document.body.dataset.lang = lang;
+						document.querySelectorAll('.lang-btn').forEach(function(b) {
+							b.classList.remove('active');
+						});
+						btn.classList.add('active');
+					}
+				</script>
+				<p class="api-key-note">
+					<a class="robot-link" href="https://adventures.fredyang.com">Learn more about storage engines <span aria-hidden="true">&rarr;</span></a>
+				</p>
+			</section>
+			</div>
+		</div>
+	</body>
+	</html>
+}

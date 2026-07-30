@@ -2,29 +2,18 @@ package website
 
 templ websiteIndex() {
 	<html>
-	<head>
-		<title>Fredb</title>
-		@favicon()
-		<meta name="viewport" content="width=device-width, initial-scale=1"/>
-		@themeInit()
-		<script src="https://unpkg.com/htmx.org@2.0.4"></script>
-		@stylesheet()
-	</head>
+	@pageHead("Fredb")
 	<body data-lang="curl">
-		<div class="page">
-			<!-- <header class="header">
-				<span>db.fredyang.com</span>
-				<nav>
-					<a href="/robot">I am a Robot</a>
-					<a href="/salesperson">I am a Salesperson</a>
-				</nav>
-			</header> -->
-			@heroSection()
-			@usageSection()
-			@limitsSection()
-			@disclaimerSection()
+		@topbar()
+		<div class="shell">
+			@siteNav("home")
+			<div class="page">
+				@heroCopy()
+				@usageSection()
+				@limitsSection()
+				@disclaimerSection()
+			</div>
 		</div>
-		@themeToggle()
 	</body>
 	</html>
 }

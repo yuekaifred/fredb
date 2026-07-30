@@ -21,7 +21,7 @@
             };
             modRoot = "server";
             # note to self swap this out with pkgs.lib.fakeHash EVERYTIME
-            vendorHash = "sha256-3vR76WIKYas0x+hZFBUu0L8J5R+Xx3qEW2fQqjGZinA=";
+            vendorHash = "sha256-Neu+jW6zSbQifSNxBuYwNH5AmBXxaZK5PhcoH3ZRV+E=";
             doCheck = false;
             nativeBuildInputs = [ pkgs.cmake pkgs.clang ];
             env = {
