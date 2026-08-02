@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -264,29 +265,51 @@ func (man *DatabaseManager) StartReaper(interval, maxIdle time.Duration) {
 	}()
 }
 
+func (man *DatabaseManager) TenantCount() int {
+	man.mu.RLock()
+	defer man.mu.RUnlock()
+	return len(man.tenants)
+}
+
 type StorageStatsResult struct {
-	TenantsUsedBytes  uint64
+	DiskUsedBytes     uint64
 	MachineTotalBytes uint64
 	MachineFreeBytes  uint64
 }
 
-func (man *DatabaseManager) StorageStats() (StorageStatsResult, error) {
-	man.mu.RLock()
-	dbs := make([]*Database, 0, len(man.tenants))
-	for _, db := range man.tenants {
-		dbs = append(dbs, db)
-	}
-	man.mu.RUnlock()
-
-	var used uint64
-	for _, db := range dbs {
-		n, ok, err := db.EngineSize()
+func (man *DatabaseManager) DiskFootprint() (uint64, error) {
+	var total uint64
+	err := filepath.WalkDir(man.dataRoot, func(_ string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return nil
+			}
+			return walkErr
+		}
+		info, err := d.Info()
 		if err != nil {
-			return StorageStatsResult{}, err
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
 		}
-		if ok {
-			used += n
+		if st, ok := info.Sys().(*syscall.Stat_t); ok {
+			total += uint64(st.Blocks) * 512
+		} else {
+			total += uint64(info.Size())
 		}
+		return nil
+	})
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	return total, err
+}
+
+func (man *DatabaseManager) StorageStats() (StorageStatsResult, error) {
+	diskUsed, err := man.DiskFootprint()
+	if err != nil {
+		return StorageStatsResult{}, err
 	}
 
 	var stat syscall.Statfs_t
@@ -296,7 +319,7 @@ func (man *DatabaseManager) StorageStats() (StorageStatsResult, error) {
 	bsize := uint64(stat.Bsize)
 
 	return StorageStatsResult{
-		TenantsUsedBytes:  used,
+		DiskUsedBytes:     diskUsed,
 		MachineTotalBytes: stat.Blocks * bsize,
 		MachineFreeBytes:  stat.Bavail * bsize,
 	}, nil

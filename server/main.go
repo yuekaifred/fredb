@@ -131,7 +131,10 @@ func main() {
 	}
 	manager.StartReaper(time.Duration(*reapIntervalSeconds)*time.Second, time.Duration(*inactivityDays)*24*time.Hour)
 
-	web := website.NewHandler(manager)
+	sampler := NewStatusSampler(manager)
+	sampler.Start()
+
+	web := website.NewHandler(manager, sampler)
 	admin := NewAdminHandler(manager, *adminKey)
 	public := NewPublicHandler(manager)
 
@@ -145,5 +148,5 @@ func main() {
 	}()
 
 	log.Printf("api at http://localhost%s", *apiAddr)
-	log.Fatal(http.ListenAndServe(*apiAddr, withLogging(public, *verbose)))
+	log.Fatal(http.ListenAndServe(*apiAddr, withLogging(sampler.Measure(public), *verbose)))
 }

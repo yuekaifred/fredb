@@ -418,8 +418,8 @@ func TestStorageStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StorageStats: %v", err)
 	}
-	if stats.TenantsUsedBytes == 0 {
-		t.Fatal("TenantsUsedBytes should be > 0 after a put")
+	if stats.DiskUsedBytes == 0 {
+		t.Fatal("DiskUsedBytes should be > 0 after a put")
 	}
 	if stats.MachineTotalBytes == 0 {
 		t.Fatal("MachineTotalBytes should be > 0")

@@ -15,7 +15,11 @@ type Provisioner interface {
 	RequestProvision() (string, error)
 }
 
-func NewHandler(p Provisioner) http.Handler {
+type StatusProvider interface {
+	Status() StatusView
+}
+
+func NewHandler(p Provisioner, s StatusProvider) http.Handler {
 	r := gin.Default()
 
 	staticSub, err := fs.Sub(staticFS, "static")
@@ -44,6 +48,14 @@ func NewHandler(p Provisioner) http.Handler {
 
 	r.GET("/docs", func(c *gin.Context) {
 		docsPage().Render(c.Request.Context(), c.Writer)
+	})
+
+	r.GET("/status", func(c *gin.Context) {
+		statusPage(s.Status()).Render(c.Request.Context(), c.Writer)
+	})
+
+	r.GET("/status/live", func(c *gin.Context) {
+		statusBody(s.Status()).Render(c.Request.Context(), c.Writer)
 	})
 
 	return r

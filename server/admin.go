@@ -79,7 +79,7 @@ func NewAdminHandler(man *DatabaseManager, adminKey string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"tenants_used_bytes":  stats.TenantsUsedBytes,
+			"disk_used_bytes":     stats.DiskUsedBytes,
 			"machine_total_bytes": stats.MachineTotalBytes,
 			"machine_free_bytes":  stats.MachineFreeBytes,
 		})

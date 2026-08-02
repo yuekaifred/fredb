@@ -260,14 +260,3 @@ func (db *Database) Range(start, end string) ([]KV, *StoreError) {
 	}
 	return pairs, nil
 }
-
-func (db *Database) EngineSize() (size uint64, ok bool, err error) {
-	db.mu.RLock()
-	engine := db.engine
-	db.mu.RUnlock()
-	if engine == nil {
-		return 0, false, nil
-	}
-	n, err := engine.TotalSize()
-	return n, true, err
-}

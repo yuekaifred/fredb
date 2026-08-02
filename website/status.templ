@@ -1,0 +1,67 @@
+package website
+
+templ statusPage(v StatusView) {
+	<html>
+	@pageHead("Fredb — Status")
+	<body data-lang="curl">
+		@topbar()
+		<div class="shell">
+			@siteNav("status")
+			<div class="page">
+				<div hx-get="/status/live" hx-trigger="load, every 1s" hx-swap="innerHTML">
+					@statusBody(v)
+				</div>
+			</div>
+		</div>
+	</body>
+	</html>
+}
+
+templ statusBody(v StatusView) {
+	<section class="status-section">
+		<h2>Status</h2>
+		if v.Healthy {
+			<p class="status-ok">All systems operational! :)</p>
+		} else {
+			<p class="status-err">Fredb is experiencing issues. :(</p>
+		}
+		<h3 class="status-sub">Health</h3>
+		<div class="stat-grid">
+			@statTile(v.DiskUsed, "on disk")
+			@statTile(v.TenantCount, "tenants")
+			@statTile(v.Uptime, "uptime")
+		</div>
+		<h3 class="status-sub">Request latency</h3>
+		<div class="stat-grid">
+			@statTile(v.WriteP50, "write p50")
+			@statTile(v.WriteP99, "write p99")
+			@statTile(v.ReadP50, "read p50")
+			@statTile(v.ReadP99, "read p99")
+			@statTile(v.OpsPerSec, "req / sec")
+			@statTile(v.TotalOps, "total reqs")
+		</div>
+		<h3 class="status-sub">Recent requests</h3>
+		if len(v.RecentOps) == 0 {
+			<p class="status-empty">no requests yet…</p>
+		} else {
+			<table class="feed-table">
+				<tr><th>time</th><th>op</th><th>latency</th><th>result</th></tr>
+				for _, op := range v.RecentOps {
+					<tr>
+						<td>{ op.When }</td>
+						<td>{ op.Op }</td>
+						<td>{ op.Latency }</td>
+						<td class={ op.StatusClass() }>{ op.StatusText() }</td>
+					</tr>
+				}
+			</table>
+		}
+	</section>
+}
+
+templ statTile(value, label string) {
+	<div class="stat-tile">
+		<div class="stat-value">{ value }</div>
+		<div class="stat-label">{ label }</div>
+	</div>
+}
